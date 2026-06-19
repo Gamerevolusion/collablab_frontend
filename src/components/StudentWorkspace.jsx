@@ -5,11 +5,9 @@ import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import { MonacoBinding } from 'y-monaco';
 
+// Central CRDT signaling server URL
 const CRDT_URL = 'wss://collablab-sync-engine.onrender.com';
 
-/**
- * Student workspace: Monaco editor with CRDT sync + terminal output + hand-raise.
- */
 export default function StudentWorkspace({
   isDark,
   lobbyCode,
@@ -63,7 +61,6 @@ export default function StudentWorkspace({
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      {/* Toolbar */}
       <div className={`flex items-center justify-between border-b px-4 py-2 ${headerClass} ${borderClass}`}>
         <div className="flex items-center gap-3">
           <select
@@ -102,7 +99,6 @@ export default function StudentWorkspace({
         </div>
       </div>
 
-      {/* Editor */}
       <div className={`h-[65%] w-full border-b ${borderClass}`}>
         <Editor
           height="100%"
@@ -115,7 +111,6 @@ export default function StudentWorkspace({
         />
       </div>
 
-      {/* Terminal */}
       <div className={`h-[35%] w-full p-4 overflow-y-auto ${isDark ? 'bg-black' : 'bg-neutral-100'}`}>
         <div className="text-[9px] text-neutral-500 font-bold uppercase mb-2">Live Console</div>
         <pre className={`text-xs whitespace-pre-wrap ${isDark ? 'text-neutral-300' : 'text-neutral-700 font-semibold'}`}>

@@ -5,12 +5,9 @@ import { WebsocketProvider } from 'y-websocket';
 import { MonacoBinding } from 'y-monaco';
 import MonitorGrid from './MonitorGrid';
 
+// Central CRDT signaling server URL
 const CRDT_URL = 'wss://collablab-sync-engine.onrender.com';
 
-/**
- * Professor dashboard: student roster (with hand-raise indicators),
- * collaborative editor, and monitoring grid.
- */
 export default function ProfessorDashboard({
   isDark,
   lobbyCode,
@@ -37,7 +34,6 @@ export default function ProfessorDashboard({
 
   return (
     <div className={`flex-1 grid grid-cols-5 h-full divide-x ${borderClass}`}>
-      {/* Roster Sidebar */}
       <div className={`col-span-1 p-4 flex flex-col ${isDark ? 'bg-neutral-950' : 'bg-neutral-50'}`}>
         <div className={`text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-3 border-b pb-2 ${borderClass}`}>
           Active Roster ({connectedStudents.length})
@@ -87,7 +83,6 @@ export default function ProfessorDashboard({
         </div>
       </div>
 
-      {/* Main Content — Collab Editor or Monitor Grid */}
       <div className={`col-span-4 flex flex-col h-full overflow-hidden ${isDark ? 'bg-neutral-900/30' : 'bg-neutral-100'}`}>
         {activeCollabStudent ? (
           <div className="flex-1 flex flex-col h-full">

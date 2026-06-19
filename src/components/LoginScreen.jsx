@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
 import { Sun, Moon } from 'lucide-react';
 
-/**
- * Login / Join screen for CollabLab.
- * Validates inputs before calling onJoin.
- */
 export default function LoginScreen({ onJoin, isDark, setIsDark, errorMessage }) {
   const [lobbyCode, setLobbyCode] = useState('');
   const [studentId, setStudentId] = useState('');
@@ -58,7 +54,6 @@ export default function LoginScreen({ onJoin, isDark, setIsDark, errorMessage })
         )}
 
         <div className="space-y-4">
-          {/* Role Selector */}
           <div>
             <label className="block text-[10px] uppercase text-neutral-500 mb-1.5 font-bold">Role</label>
             <div className={`grid grid-cols-2 gap-1 p-1 rounded border ${isDark ? 'bg-black border-neutral-800' : 'bg-neutral-100 border-neutral-200'}`}>
@@ -77,7 +72,6 @@ export default function LoginScreen({ onJoin, isDark, setIsDark, errorMessage })
             </div>
           </div>
 
-          {/* Lobby Code */}
           <div>
             <label className="block text-[10px] uppercase text-neutral-500 mb-1 font-bold">Lobby Code</label>
             <input
@@ -91,7 +85,6 @@ export default function LoginScreen({ onJoin, isDark, setIsDark, errorMessage })
             />
           </div>
 
-          {/* Student ID */}
           {role === 'student' && (
             <div>
               <label className="block text-[10px] uppercase text-neutral-500 mb-1 font-bold">Name / Roll Number</label>

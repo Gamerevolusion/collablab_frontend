@@ -1,11 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 
+// Central API Gateway URL
 const WS_URL = 'wss://collablab-backend.onrender.com';
 
-/**
- * Custom hook encapsulating all WebSocket logic for CollabLab.
- * Handles connection, lobby join, code sync, execution, and hand-raise.
- */
 export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
   const socketRef = useRef(null);
   const [connectedStudents, setConnectedStudents] = useState([]);
@@ -116,7 +113,6 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
       next.delete(targetStudentId);
       return next;
     });
-    // Notify the student their hand was acknowledged
     sendMessage('HAND_LOWER', { rollNumber: targetStudentId });
   }, [sendMessage]);
 

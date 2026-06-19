@@ -1,9 +1,5 @@
 import React from 'react';
 
-/**
- * Monitor grid showing all students' code streams and execution outputs.
- * Displays student IDs and hand-raise indicators.
- */
 export default function MonitorGrid({ isDark, studentStreams, studentOutputs, handRaises, onAcknowledgeHand }) {
   const borderClass = isDark ? 'border-neutral-800' : 'border-neutral-200';
   const streamIds = Object.keys(studentStreams);
@@ -36,7 +32,6 @@ export default function MonitorGrid({ isDark, studentStreams, studentOutputs, ha
               isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-white border-neutral-200'
             } ${handRaises.has(studentId) ? 'ring-2 ring-amber-500' : ''}`}
           >
-            {/* Card header with ID and hand-raise indicator */}
             <div className={`text-[10px] font-bold px-3 py-1.5 border-b flex items-center justify-between ${
               isDark ? 'bg-neutral-800 text-neutral-300 border-neutral-800' : 'bg-neutral-100 text-neutral-600 border-neutral-200'
             }`}>
@@ -52,14 +47,12 @@ export default function MonitorGrid({ isDark, studentStreams, studentOutputs, ha
               )}
             </div>
 
-            {/* Code preview */}
             <pre className={`flex-1 p-2 text-[10px] overflow-hidden whitespace-pre-wrap ${
               isDark ? 'bg-black text-neutral-500' : 'bg-white text-neutral-400'
             }`}>
               {studentStreams[studentId]}
             </pre>
 
-            {/* Execution output */}
             <div className={`h-1/3 p-2 overflow-y-auto border-t ${
               isDark ? 'bg-neutral-950 border-neutral-800' : 'bg-neutral-50 border-neutral-200'
             }`}>
