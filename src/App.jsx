@@ -9,11 +9,11 @@ function App() {
   // Theme
   const [isDark, setIsDark] = useState(true);
 
-  // Session
-  const [isJoined, setIsJoined] = useState(false);
-  const [lobbyCode, setLobbyCode] = useState('');
-  const [studentId, setStudentId] = useState('');
-  const [role, setRole] = useState('student');
+  // Session — restore from sessionStorage on reload
+  const [isJoined, setIsJoined] = useState(() => sessionStorage.getItem('collablab_joined') === 'true');
+  const [lobbyCode, setLobbyCode] = useState(() => sessionStorage.getItem('collablab_lobby') || '');
+  const [studentId, setStudentId] = useState(() => sessionStorage.getItem('collablab_id') || '');
+  const [role, setRole] = useState(() => sessionStorage.getItem('collablab_role') || 'student');
 
   // Editor state (student only)
   const [localCode, setLocalCode] = useState('print("System Online.")\n');
@@ -38,18 +38,23 @@ function App() {
     acknowledgeHand,
   } = useCollabSocket({ isJoined, role, lobbyCode, studentId });
 
-  // Handle join from login screen
+  // Handle join from login screen — persist to sessionStorage
   const handleJoin = ({ lobbyCode: code, studentId: id, role: r }) => {
     setLobbyCode(code);
     setStudentId(id);
     setRole(r);
     setIsJoined(true);
+    sessionStorage.setItem('collablab_joined', 'true');
+    sessionStorage.setItem('collablab_lobby', code);
+    sessionStorage.setItem('collablab_id', id);
+    sessionStorage.setItem('collablab_role', r);
   };
 
-  // Handle socket errors — kick back to login
+  // Handle socket errors — kick back to login and clear session
   React.useEffect(() => {
     if (socketError) {
       setIsJoined(false);
+      sessionStorage.removeItem('collablab_joined');
     }
   }, [socketError]);
 
