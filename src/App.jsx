@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sun, Moon } from 'lucide-react';
+import { Sun, Moon, LogOut } from 'lucide-react';
 import LoginScreen from './components/LoginScreen';
 import StudentWorkspace from './components/StudentWorkspace';
 import ProfessorDashboard from './components/ProfessorDashboard';
@@ -63,6 +63,16 @@ function App() {
   const borderClass = isDark ? 'border-neutral-800' : 'border-neutral-200';
   const headerClass = isDark ? 'bg-neutral-900' : 'bg-white shadow-sm';
 
+  // Leave session — clear everything and return to login
+  const leaveSession = () => {
+    setIsJoined(false);
+    setIsHandRaised(false);
+    sessionStorage.removeItem('collablab_joined');
+    sessionStorage.removeItem('collablab_lobby');
+    sessionStorage.removeItem('collablab_id');
+    sessionStorage.removeItem('collablab_role');
+  };
+
   // Hand-raise wrappers for student
   const handleRaiseHand = () => {
     raiseHand();
@@ -111,6 +121,14 @@ function App() {
               {role === 'professor' ? 'PROFESSOR' : studentId}
             </span>
           </span>
+          <button
+            id="leave-session-btn"
+            onClick={leaveSession}
+            className="flex items-center gap-1.5 bg-red-600/80 hover:bg-red-500 text-white px-2.5 py-1 rounded transition font-bold uppercase"
+            title="Leave this session"
+          >
+            <LogOut size={10} /> Leave
+          </button>
         </div>
       </header>
 
