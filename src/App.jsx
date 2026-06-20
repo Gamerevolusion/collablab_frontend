@@ -27,6 +27,7 @@ function App() {
     error: socketError,
     handRaises,
     announcements,
+    pasteAlerts,
     syncCode,
     executeCode,
     raiseHand,
@@ -34,6 +35,7 @@ function App() {
     acknowledgeHand,
     sendAnnouncement,
     dismissAnnouncement,
+    reportPaste,
   } = useCollabSocket({ isJoined, role, lobbyCode, studentId });
 
   const handleJoin = ({ lobbyCode: code, studentId: id, role: r }) => {
@@ -141,6 +143,7 @@ function App() {
             isHandRaised={isHandRaised}
             announcements={announcements}
             onDismissAnnouncement={dismissAnnouncement}
+            onReportPaste={reportPaste}
           />
         ) : (
           <ProfessorDashboard
@@ -152,6 +155,7 @@ function App() {
             handRaises={handRaises}
             onAcknowledgeHand={acknowledgeHand}
             onSendAnnouncement={sendAnnouncement}
+            pasteAlerts={pasteAlerts}
           />
         )}
       </main>

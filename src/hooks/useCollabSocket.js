@@ -13,6 +13,7 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
   const [error, setError] = useState('');
   const [handRaises, setHandRaises] = useState(new Set());
   const [announcements, setAnnouncements] = useState([]);
+  const [pasteAlerts, setPasteAlerts] = useState({});
 
   useEffect(() => {
     if (!isJoined) return;
@@ -71,6 +72,9 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
         case 'ANNOUNCEMENT':
           setAnnouncements(prev => [...prev, { message: payload.message, timestamp: payload.timestamp, id: Date.now() }]);
           break;
+        case 'PASTE_DETECTED':
+          setPasteAlerts(prev => ({ ...prev, [payload.rollNumber]: { charCount: payload.charCount, timestamp: payload.timestamp } }));
+          break;
         default:
           break;
       }
@@ -128,6 +132,10 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
     setAnnouncements(prev => prev.filter(a => a.id !== id));
   }, []);
 
+  const reportPaste = useCallback((charCount) => {
+    sendMessage('PASTE_DETECTED', { rollNumber: studentId, charCount });
+  }, [sendMessage, studentId]);
+
   return {
     connectedStudents,
     studentStreams,
@@ -137,6 +145,7 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
     error,
     handRaises,
     announcements,
+    pasteAlerts,
     syncCode,
     executeCode,
     raiseHand,
@@ -144,5 +153,6 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
     acknowledgeHand,
     sendAnnouncement,
     dismissAnnouncement,
+    reportPaste,
   };
 }

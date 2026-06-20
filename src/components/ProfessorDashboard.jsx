@@ -18,6 +18,7 @@ export default function ProfessorDashboard({
   handRaises,
   onAcknowledgeHand,
   onSendAnnouncement,
+  pasteAlerts,
 }) {
   const [activeCollabStudent, setActiveCollabStudent] = useState(null);
   const [announcementText, setAnnouncementText] = useState('');
@@ -144,6 +145,7 @@ export default function ProfessorDashboard({
             studentOutputs={studentOutputs}
             handRaises={handRaises}
             onAcknowledgeHand={onAcknowledgeHand}
+            pasteAlerts={pasteAlerts}
           />
         )}
       </div>

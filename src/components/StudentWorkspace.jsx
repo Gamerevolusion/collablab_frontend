@@ -25,6 +25,7 @@ export default function StudentWorkspace({
   isHandRaised,
   announcements,
   onDismissAnnouncement,
+  onReportPaste,
 }) {
   const editorRef = useRef(null);
   const borderClass = isDark ? 'border-neutral-800' : 'border-neutral-200';
@@ -45,6 +46,13 @@ export default function StudentWorkspace({
     provider.awareness.setLocalStateField('user', {
       name: studentId,
       color: '#10b981',
+    });
+
+    editor.onDidPaste((e) => {
+      const pastedText = editor.getModel().getValueInRange(e.range);
+      if (pastedText.length > 10) {
+        onReportPaste(pastedText.length);
+      }
     });
   };
 
