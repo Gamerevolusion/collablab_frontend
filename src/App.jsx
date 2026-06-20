@@ -8,10 +8,10 @@ import { useCollabSocket } from './hooks/useCollabSocket';
 function App() {
   const [isDark, setIsDark] = useState(true);
 
-  const [isJoined, setIsJoined] = useState(() => sessionStorage.getItem('collablab_joined') === 'true');
-  const [lobbyCode, setLobbyCode] = useState(() => sessionStorage.getItem('collablab_lobby') || '');
-  const [studentId, setStudentId] = useState(() => sessionStorage.getItem('collablab_id') || '');
-  const [role, setRole] = useState(() => sessionStorage.getItem('collablab_role') || 'student');
+  const [isJoined, setIsJoined] = useState(false);
+  const [lobbyCode, setLobbyCode] = useState('');
+  const [studentId, setStudentId] = useState('');
+  const [role, setRole] = useState('student');
 
   const [localCode, setLocalCode] = useState('print("System Online.")\n');
   const [selectedLanguage, setSelectedLanguage] = useState('python');
@@ -38,16 +38,11 @@ function App() {
     setStudentId(id);
     setRole(r);
     setIsJoined(true);
-    sessionStorage.setItem('collablab_joined', 'true');
-    sessionStorage.setItem('collablab_lobby', code);
-    sessionStorage.setItem('collablab_id', id);
-    sessionStorage.setItem('collablab_role', r);
   };
 
   React.useEffect(() => {
     if (socketError) {
       setIsJoined(false);
-      sessionStorage.removeItem('collablab_joined');
     }
   }, [socketError]);
 
@@ -58,10 +53,6 @@ function App() {
   const leaveSession = () => {
     setIsJoined(false);
     setIsHandRaised(false);
-    sessionStorage.removeItem('collablab_joined');
-    sessionStorage.removeItem('collablab_lobby');
-    sessionStorage.removeItem('collablab_id');
-    sessionStorage.removeItem('collablab_role');
   };
 
   const handleRaiseHand = () => {
