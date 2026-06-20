@@ -136,6 +136,14 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
     sendMessage('PASTE_DETECTED', { rollNumber: studentId, charCount });
   }, [sendMessage, studentId]);
 
+  const dismissPasteAlert = useCallback((targetId) => {
+    setPasteAlerts(prev => {
+      const next = { ...prev };
+      delete next[targetId];
+      return next;
+    });
+  }, []);
+
   return {
     connectedStudents,
     studentStreams,
@@ -154,5 +162,6 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
     sendAnnouncement,
     dismissAnnouncement,
     reportPaste,
+    dismissPasteAlert,
   };
 }

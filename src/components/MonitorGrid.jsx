@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Maximize2, Grid, Clipboard } from 'lucide-react';
 
-export default function MonitorGrid({ isDark, studentStreams, studentOutputs, handRaises, onAcknowledgeHand, pasteAlerts }) {
+export default function MonitorGrid({ isDark, studentStreams, studentOutputs, handRaises, onAcknowledgeHand, pasteAlerts, onDismissPasteAlert }) {
   const [focusedStudent, setFocusedStudent] = useState(null);
   const borderClass = isDark ? 'border-neutral-800' : 'border-neutral-200';
   const streamIds = Object.keys(studentStreams);
@@ -72,8 +72,17 @@ export default function MonitorGrid({ isDark, studentStreams, studentOutputs, ha
             </div>
 
             {pasteAlerts && pasteAlerts[studentId] && (
-              <div className="flex items-center gap-1.5 px-3 py-1 bg-red-500/15 text-red-400 text-[9px] font-bold uppercase">
-                <Clipboard size={9} /> Copy-Paste Detected — {pasteAlerts[studentId].charCount} chars pasted
+              <div className="flex items-center justify-between px-3 py-1 bg-red-500/15 text-red-400 text-[9px] font-bold uppercase">
+                <div className="flex items-center gap-1.5">
+                  <Clipboard size={9} /> Copy-Paste Detected — {pasteAlerts[studentId].charCount} chars pasted
+                </div>
+                <button
+                  onClick={() => onDismissPasteAlert(studentId)}
+                  className="hover:text-red-300 transition text-[10px]"
+                  title="Dismiss alert"
+                >
+                  ✕
+                </button>
               </div>
             )}
 

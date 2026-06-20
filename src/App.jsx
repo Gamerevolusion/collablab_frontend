@@ -36,6 +36,7 @@ function App() {
     sendAnnouncement,
     dismissAnnouncement,
     reportPaste,
+    dismissPasteAlert,
   } = useCollabSocket({ isJoined, role, lobbyCode, studentId });
 
   const handleJoin = ({ lobbyCode: code, studentId: id, role: r }) => {
@@ -156,6 +157,7 @@ function App() {
             onAcknowledgeHand={acknowledgeHand}
             onSendAnnouncement={sendAnnouncement}
             pasteAlerts={pasteAlerts}
+            onDismissPasteAlert={dismissPasteAlert}
           />
         )}
       </main>
