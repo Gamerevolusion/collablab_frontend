@@ -12,6 +12,7 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState('');
   const [handRaises, setHandRaises] = useState(new Set());
+  const [announcements, setAnnouncements] = useState([]);
 
   useEffect(() => {
     if (!isJoined) return;
@@ -67,6 +68,9 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
             return next;
           });
           break;
+        case 'ANNOUNCEMENT':
+          setAnnouncements(prev => [...prev, { message: payload.message, timestamp: payload.timestamp, id: Date.now() }]);
+          break;
         default:
           break;
       }
@@ -116,6 +120,14 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
     sendMessage('HAND_LOWER', { rollNumber: targetStudentId });
   }, [sendMessage]);
 
+  const sendAnnouncement = useCallback((message) => {
+    sendMessage('ANNOUNCEMENT', { message });
+  }, [sendMessage]);
+
+  const dismissAnnouncement = useCallback((id) => {
+    setAnnouncements(prev => prev.filter(a => a.id !== id));
+  }, []);
+
   return {
     connectedStudents,
     studentStreams,
@@ -124,10 +136,13 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
     isRunning,
     error,
     handRaises,
+    announcements,
     syncCode,
     executeCode,
     raiseHand,
     lowerHand,
     acknowledgeHand,
+    sendAnnouncement,
+    dismissAnnouncement,
   };
 }

@@ -1,6 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
-import { Play, Hand } from 'lucide-react';
+import { Play, Hand, Megaphone, X } from 'lucide-react';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import { MonacoBinding } from 'y-monaco';
@@ -23,6 +23,8 @@ export default function StudentWorkspace({
   onRaiseHand,
   onLowerHand,
   isHandRaised,
+  announcements,
+  onDismissAnnouncement,
 }) {
   const editorRef = useRef(null);
   const borderClass = isDark ? 'border-neutral-800' : 'border-neutral-200';
@@ -59,8 +61,36 @@ export default function StudentWorkspace({
     }
   };
 
+  useEffect(() => {
+    if (announcements.length === 0) return;
+    const latest = announcements[announcements.length - 1];
+    const timer = setTimeout(() => onDismissAnnouncement(latest.id), 15000);
+    return () => clearTimeout(timer);
+  }, [announcements, onDismissAnnouncement]);
+
   return (
     <div className="flex-1 flex flex-col h-full">
+      {announcements.length > 0 && (
+        <div className="space-y-0.5">
+          {announcements.map(a => (
+            <div
+              key={a.id}
+              className={`flex items-center justify-between gap-3 px-4 py-2 text-[10px] font-bold animate-pulse ${isDark ? 'bg-indigo-600/20 text-indigo-300' : 'bg-indigo-100 text-indigo-700'}`}
+            >
+              <div className="flex items-center gap-2">
+                <Megaphone size={11} />
+                <span>{a.message}</span>
+              </div>
+              <button
+                onClick={() => onDismissAnnouncement(a.id)}
+                className="hover:opacity-60 transition"
+              >
+                <X size={10} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       <div className={`flex items-center justify-between border-b px-4 py-2 ${headerClass} ${borderClass}`}>
         <div className="flex items-center gap-3">
           <select

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Megaphone } from 'lucide-react';
 import Editor from '@monaco-editor/react';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
@@ -16,8 +17,10 @@ export default function ProfessorDashboard({
   studentOutputs,
   handRaises,
   onAcknowledgeHand,
+  onSendAnnouncement,
 }) {
   const [activeCollabStudent, setActiveCollabStudent] = useState(null);
+  const [announcementText, setAnnouncementText] = useState('');
   const borderClass = isDark ? 'border-neutral-800' : 'border-neutral-200';
 
   const handleEditorMount = (editor, monaco, targetStudentId) => {
@@ -80,6 +83,32 @@ export default function ProfessorDashboard({
               No students connected yet.
             </p>
           )}
+        </div>
+
+        <div className={`border-t pt-3 ${borderClass}`}>
+          <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <Megaphone size={10} /> Announce
+          </div>
+          <textarea
+            id="announcement-input"
+            value={announcementText}
+            onChange={(e) => setAnnouncementText(e.target.value)}
+            placeholder="Type an announcement..."
+            rows={2}
+            className={`w-full border rounded px-2 py-1.5 text-[10px] resize-none focus:outline-none transition ${isDark ? 'bg-black border-neutral-800 placeholder:text-neutral-700' : 'bg-white border-neutral-300 text-black placeholder:text-neutral-400'}`}
+          />
+          <button
+            id="send-announcement-btn"
+            onClick={() => {
+              if (announcementText.trim()) {
+                onSendAnnouncement(announcementText.trim());
+                setAnnouncementText('');
+              }
+            }}
+            className={`w-full mt-1.5 text-[9px] font-bold py-1.5 rounded uppercase tracking-wider transition ${isDark ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-indigo-500 hover:bg-indigo-400 text-white'}`}
+          >
+            Broadcast to All Students
+          </button>
         </div>
       </div>
 
