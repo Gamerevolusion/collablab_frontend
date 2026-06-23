@@ -49,10 +49,13 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
             return next;
           });
           break;
-        case 'STUDENT_STREAM':
-          setStudentStreams(prev => ({ ...prev, [payload.rollNumber]: payload.delta }));
+        case 'STUDENT_STREAM': {
+          const rawDelta = payload.delta;
+          const deltaStr = typeof rawDelta === 'object' && rawDelta !== null ? (rawDelta.code || '') : (rawDelta || '');
+          setStudentStreams(prev => ({ ...prev, [payload.rollNumber]: deltaStr }));
           if (payload.language) setStudentLanguages(prev => ({ ...prev, [payload.rollNumber]: payload.language }));
           break;
+        }
         case 'EXECUTION_RESULT':
           if (role === 'student') {
             setTerminalOutput(payload.output);
@@ -103,10 +106,10 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
     sendMessage('SYNC_UPDATE', { code, language });
   }, [sendMessage]);
 
-  const executeCode = useCallback((language, code) => {
+  const executeCode = useCallback((language, code, stdin = '') => {
     setIsRunning(true);
-    setTerminalOutput('Compiling natively...');
-    sendMessage('EXECUTE_CODE', { language, code });
+    setTerminalOutput('');
+    sendMessage('EXECUTE_CODE', { language, code, stdin });
   }, [sendMessage]);
 
   const raiseHand = useCallback(() => {
