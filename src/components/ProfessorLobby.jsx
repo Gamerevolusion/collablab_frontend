@@ -1,17 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { LogOut, Clock, Users, ArrowRight, Calendar, Plus } from 'lucide-react';
+import { LogOut, Clock, Users, ArrowRight, Calendar, Plus, BookOpen } from 'lucide-react';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+
+const SEMESTERS = [1, 2, 3, 4, 5, 6, 7];
 
 export default function ProfessorLobby({ isDark, onCreateSession, onSignOut }) {
   const { user, userProfile } = useAuth();
   const [lobbyCode, setLobbyCode] = useState('');
   const [sessions, setSessions] = useState([]);
   const [loadingSessions, setLoadingSessions] = useState(true);
+  const [selectedSem, setSelectedSem] = useState(null);
+  const [subjects, setSubjects] = useState([]);
+  const [selectedSubject, setSelectedSubject] = useState('');
+  const [loadingSubjects, setLoadingSubjects] = useState(false);
 
   const borderClass = isDark ? 'border-neutral-800' : 'border-neutral-200';
   const cardClass = isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-white border-neutral-200 shadow-sm';
+  const inputClass = isDark
+    ? 'bg-black border-neutral-800 placeholder:text-neutral-700 text-neutral-200'
+    : 'bg-white border-neutral-300 text-black placeholder:text-neutral-400';
 
   useEffect(() => {
     if (!user) return;
@@ -33,6 +42,29 @@ export default function ProfessorLobby({ isDark, onCreateSession, onSignOut }) {
     fetchSessions();
   }, [user]);
 
+  useEffect(() => {
+    if (!selectedSem) { setSubjects([]); setSelectedSubject(''); return; }
+    const fetchSubjects = async () => {
+      setLoadingSubjects(true);
+      setSelectedSubject('');
+      try {
+        const q = query(
+          collection(db, 'subjects'),
+          where('semester', '==', selectedSem),
+          orderBy('name', 'asc')
+        );
+        const snap = await getDocs(q);
+        setSubjects(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      } catch (err) {
+        console.error('Failed to load subjects:', err);
+        setSubjects([]);
+      } finally {
+        setLoadingSubjects(false);
+      }
+    };
+    fetchSubjects();
+  }, [selectedSem]);
+
   const generateCode = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let code = '';
@@ -41,8 +73,12 @@ export default function ProfessorLobby({ isDark, onCreateSession, onSignOut }) {
   };
 
   const handleStart = () => {
-    if (lobbyCode.trim()) onCreateSession(lobbyCode.trim());
+    if (lobbyCode.trim() && selectedSem && selectedSubject) {
+      onCreateSession(lobbyCode.trim(), selectedSem, selectedSubject);
+    }
   };
+
+  const canCreate = lobbyCode.trim() && selectedSem && selectedSubject;
 
   const formatDate = (ts) => {
     if (!ts) return '—';
@@ -105,16 +141,62 @@ export default function ProfessorLobby({ isDark, onCreateSession, onSignOut }) {
               </div>
             </div>
 
-            <div className={`w-80 border rounded-xl p-5 ${cardClass}`}>
+            <div className={`w-96 border rounded-xl p-5 ${cardClass}`}>
               <div className="text-[10px] font-bold uppercase text-neutral-500 mb-3">Start a Session</div>
+
+              <div className="mb-3">
+                <div className="text-[9px] font-bold uppercase text-neutral-500 mb-1.5">Semester</div>
+                <div className="flex gap-1.5">
+                  {SEMESTERS.map(sem => (
+                    <button
+                      key={sem}
+                      onClick={() => setSelectedSem(sem)}
+                      className={`w-8 h-8 rounded text-[10px] font-bold transition ${
+                        selectedSem === sem
+                          ? 'bg-amber-600 text-white'
+                          : isDark ? 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                      }`}
+                    >
+                      {sem}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {selectedSem && (
+                <div className="mb-3">
+                  <div className="text-[9px] font-bold uppercase text-neutral-500 mb-1.5 flex items-center gap-1">
+                    <BookOpen size={8} /> Subject (Sem {selectedSem})
+                  </div>
+                  {loadingSubjects ? (
+                    <div className="text-[9px] text-neutral-600 py-1">Loading subjects...</div>
+                  ) : subjects.length === 0 ? (
+                    <div className={`text-[9px] px-2.5 py-2 rounded border ${isDark ? 'text-neutral-600 border-neutral-800 bg-neutral-950' : 'text-neutral-400 border-neutral-200 bg-neutral-50'}`}>
+                      No subjects found. Ask the admin to add subjects for Sem {selectedSem}.
+                    </div>
+                  ) : (
+                    <select
+                      value={selectedSubject}
+                      onChange={e => setSelectedSubject(e.target.value)}
+                      className={`w-full border rounded px-2.5 py-2 text-xs focus:outline-none transition ${inputClass}`}
+                    >
+                      <option value="">Select a subject...</option>
+                      {subjects.map(s => (
+                        <option key={s.id} value={s.name}>{s.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
+
               <div className="flex gap-2 mb-3">
                 <input
                   type="text"
                   value={lobbyCode}
                   onChange={e => setLobbyCode(e.target.value.toUpperCase())}
-                  onKeyDown={e => e.key === 'Enter' && handleStart()}
+                  onKeyDown={e => e.key === 'Enter' && canCreate && handleStart()}
                   placeholder="Lobby code..."
-                  className={`flex-1 border rounded px-3 py-2 text-xs focus:outline-none transition ${isDark ? 'bg-black border-neutral-800 placeholder:text-neutral-700' : 'bg-white border-neutral-300 text-black placeholder:text-neutral-400'}`}
+                  className={`flex-1 border rounded px-3 py-2 text-xs focus:outline-none transition ${inputClass}`}
                 />
                 <button
                   onClick={generateCode}
@@ -126,11 +208,16 @@ export default function ProfessorLobby({ isDark, onCreateSession, onSignOut }) {
               </div>
               <button
                 onClick={handleStart}
-                disabled={!lobbyCode.trim()}
+                disabled={!canCreate}
                 className="w-full flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white px-4 py-2 rounded text-xs font-bold uppercase transition"
               >
                 Create Session <ArrowRight size={12} />
               </button>
+              {!canCreate && lobbyCode.trim() && (
+                <div className="text-[8px] text-amber-500 mt-1.5 text-center">
+                  {!selectedSem ? 'Select a semester' : !selectedSubject ? 'Select a subject' : ''}
+                </div>
+              )}
             </div>
           </div>
 
@@ -151,10 +238,11 @@ export default function ProfessorLobby({ isDark, onCreateSession, onSignOut }) {
                   <thead>
                     <tr className={`border-b ${borderClass}`}>
                       <th className="text-left py-2 px-3 text-[9px] uppercase text-neutral-500 font-bold">Date</th>
-                      <th className="text-left py-2 px-3 text-[9px] uppercase text-neutral-500 font-bold">Lobby Code</th>
+                      <th className="text-left py-2 px-3 text-[9px] uppercase text-neutral-500 font-bold">Lobby</th>
+                      <th className="text-left py-2 px-3 text-[9px] uppercase text-neutral-500 font-bold">Subject</th>
+                      <th className="text-left py-2 px-3 text-[9px] uppercase text-neutral-500 font-bold">Sem</th>
                       <th className="text-left py-2 px-3 text-[9px] uppercase text-neutral-500 font-bold">Students</th>
                       <th className="text-left py-2 px-3 text-[9px] uppercase text-neutral-500 font-bold">Duration</th>
-                      <th className="text-left py-2 px-3 text-[9px] uppercase text-neutral-500 font-bold">Languages</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -165,15 +253,10 @@ export default function ProfessorLobby({ isDark, onCreateSession, onSignOut }) {
                           <div className="text-[9px] text-neutral-500">{formatTime(s.startedAt)}</div>
                         </td>
                         <td className="py-2.5 px-3 font-bold">{s.lobbyCode}</td>
+                        <td className="py-2.5 px-3">{s.subject || '—'}</td>
+                        <td className="py-2.5 px-3">{s.semester || '—'}</td>
                         <td className="py-2.5 px-3">{s.studentCount || 0}</td>
                         <td className="py-2.5 px-3">{formatDuration(s.startedAt, s.endedAt)}</td>
-                        <td className="py-2.5 px-3">
-                          <div className="flex gap-1 flex-wrap">
-                            {(s.languages || []).map(l => (
-                              <span key={l} className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${isDark ? 'bg-neutral-800 text-neutral-400' : 'bg-neutral-200 text-neutral-600'}`}>{l}</span>
-                            ))}
-                          </div>
-                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -186,3 +269,4 @@ export default function ProfessorLobby({ isDark, onCreateSession, onSignOut }) {
     </div>
   );
 }
+

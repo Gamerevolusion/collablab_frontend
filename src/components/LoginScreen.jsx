@@ -11,6 +11,7 @@ export default function LoginScreen({ isDark, setIsDark }) {
   const [fullName, setFullName] = useState('');
   const [rollNumber, setRollNumber] = useState('');
   const [role, setRole] = useState('student');
+  const [adminKey, setAdminKey] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -32,6 +33,7 @@ export default function LoginScreen({ isDark, setIsDark }) {
       if (password !== confirmPassword) { setError('Passwords do not match.'); return; }
       if (!fullName.trim()) { setError('Full name is required.'); return; }
       if (role === 'student' && !rollNumber.trim()) { setError('Roll number is required for students.'); return; }
+      if (role === 'admin' && adminKey !== 'COLLABLAB_MASTER_2025') { setError('Invalid admin master key.'); return; }
     }
 
     setIsSubmitting(true);
@@ -85,7 +87,7 @@ export default function LoginScreen({ isDark, setIsDark }) {
             <>
               <div>
                 <label className="block text-[10px] uppercase text-neutral-500 mb-1.5 font-bold">Role</label>
-                <div className={`grid grid-cols-2 gap-1 p-1 rounded border ${isDark ? 'bg-black border-neutral-800' : 'bg-neutral-100 border-neutral-200'}`}>
+                <div className={`grid grid-cols-3 gap-1 p-1 rounded border ${isDark ? 'bg-black border-neutral-800' : 'bg-neutral-100 border-neutral-200'}`}>
                   <button
                     onClick={() => setRole('student')}
                     className={`py-1.5 text-xs font-medium rounded transition ${role === 'student' ? (isDark ? 'bg-neutral-800 text-white' : 'bg-white text-black shadow-sm') : 'text-neutral-500'}`}
@@ -97,6 +99,12 @@ export default function LoginScreen({ isDark, setIsDark }) {
                     className={`py-1.5 text-xs font-medium rounded transition ${role === 'professor' ? (isDark ? 'bg-neutral-800 text-white' : 'bg-white text-black shadow-sm') : 'text-neutral-500'}`}
                   >
                     Professor
+                  </button>
+                  <button
+                    onClick={() => setRole('admin')}
+                    className={`py-1.5 text-xs font-medium rounded transition ${role === 'admin' ? (isDark ? 'bg-red-900/60 text-red-300' : 'bg-red-100 text-red-700 shadow-sm') : 'text-neutral-500'}`}
+                  >
+                    Admin
                   </button>
                 </div>
               </div>
@@ -123,6 +131,20 @@ export default function LoginScreen({ isDark, setIsDark }) {
                     onKeyDown={handleKeyDown}
                     placeholder="e.g. 2301CS001"
                     className={`w-full border rounded px-2.5 py-2 text-xs focus:outline-none transition ${inputClass}`}
+                  />
+                </div>
+              )}
+
+              {role === 'admin' && (
+                <div>
+                  <label className="block text-[10px] uppercase text-red-500 mb-1 font-bold">Master Key</label>
+                  <input
+                    type="password"
+                    value={adminKey}
+                    onChange={e => setAdminKey(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Enter admin master key"
+                    className={`w-full border rounded px-2.5 py-2 text-xs focus:outline-none transition ${isDark ? 'bg-black border-red-900/50 placeholder:text-neutral-700 text-red-300' : 'bg-white border-red-300 text-red-700 placeholder:text-red-300'}`}
                   />
                 </div>
               )}

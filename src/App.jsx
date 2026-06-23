@@ -6,6 +6,7 @@ import StudentDashboard from './components/StudentDashboard';
 import ProfessorLobby from './components/ProfessorLobby';
 import StudentWorkspace from './components/StudentWorkspace';
 import ProfessorDashboard from './components/ProfessorDashboard';
+import AdminDashboard from './components/AdminDashboard';
 import { useCollabSocket } from './hooks/useCollabSocket';
 import {
   doc,
@@ -81,7 +82,7 @@ function AppContent() {
     }
   };
 
-  const handleCreateSession = async (code) => {
+  const handleCreateSession = async (code, semester, subject) => {
     setLobbyCode(code);
     setInSession(true);
 
@@ -94,6 +95,8 @@ function AppContent() {
         endedAt: null,
         languages: [],
         studentCount: 0,
+        semester: semester || null,
+        subject: subject || '',
       });
       setSessionDocId(sessDoc.id);
     } catch (err) {
@@ -152,6 +155,9 @@ function AppContent() {
   }
 
   if (!inSession) {
+    if (role === 'admin') {
+      return <AdminDashboard isDark={isDark} onSignOut={signOut} />;
+    }
     if (role === 'professor') {
       return <ProfessorLobby isDark={isDark} onCreateSession={handleCreateSession} onSignOut={signOut} />;
     }
