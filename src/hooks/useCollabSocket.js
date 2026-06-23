@@ -14,6 +14,7 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
   const [handRaises, setHandRaises] = useState(new Set());
   const [announcements, setAnnouncements] = useState([]);
   const [pasteAlerts, setPasteAlerts] = useState({});
+  const [studentLanguages, setStudentLanguages] = useState({});
 
   useEffect(() => {
     if (!isJoined) return;
@@ -50,6 +51,7 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
           break;
         case 'STUDENT_STREAM':
           setStudentStreams(prev => ({ ...prev, [payload.rollNumber]: payload.delta }));
+          if (payload.language) setStudentLanguages(prev => ({ ...prev, [payload.rollNumber]: payload.language }));
           break;
         case 'EXECUTION_RESULT':
           if (role === 'student') {
@@ -97,8 +99,8 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
     }
   }, [lobbyCode]);
 
-  const syncCode = useCallback((code) => {
-    sendMessage('SYNC_UPDATE', code);
+  const syncCode = useCallback((code, language) => {
+    sendMessage('SYNC_UPDATE', { code, language });
   }, [sendMessage]);
 
   const executeCode = useCallback((language, code) => {
@@ -154,6 +156,7 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
     handRaises,
     announcements,
     pasteAlerts,
+    studentLanguages,
     syncCode,
     executeCode,
     raiseHand,

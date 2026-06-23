@@ -1,22 +1,39 @@
 import React, { useState } from 'react';
 import { Sun, Moon, LogOut } from 'lucide-react';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginScreen from './components/LoginScreen';
+import StudentDashboard from './components/StudentDashboard';
+import ProfessorLobby from './components/ProfessorLobby';
 import StudentWorkspace from './components/StudentWorkspace';
 import ProfessorDashboard from './components/ProfessorDashboard';
 import { useCollabSocket } from './hooks/useCollabSocket';
+import {
+  doc,
+  addDoc,
+  updateDoc,
+  collection,
+  serverTimestamp,
+  Timestamp,
+} from 'firebase/firestore';
+import { db } from './firebase';
 
-function App() {
+function AppContent() {
+  const { user, userProfile, loading, signOut } = useAuth();
   const [isDark, setIsDark] = useState(true);
 
-  const [isJoined, setIsJoined] = useState(() => sessionStorage.getItem('collablab_joined') === 'true');
-  const [lobbyCode, setLobbyCode] = useState(() => sessionStorage.getItem('collablab_lobby') || '');
-  const [studentId, setStudentId] = useState(() => sessionStorage.getItem('collablab_id') || '');
-  const [role, setRole] = useState(() => sessionStorage.getItem('collablab_role') || 'student');
+  const [inSession, setInSession] = useState(false);
+  const [lobbyCode, setLobbyCode] = useState('');
+  const [sessionDocId, setSessionDocId] = useState(null);
+  const [participantDocId, setParticipantDocId] = useState(null);
 
-  const [localCode, setLocalCode] = useState('print("System Online.")\n');
+  const [localCode, setLocalCode] = useState('print("System Online.")\\n');
   const [selectedLanguage, setSelectedLanguage] = useState('python');
-
   const [isHandRaised, setIsHandRaised] = useState(false);
+
+  const role = userProfile?.role || 'student';
+  const studentId = role === 'student'
+    ? (userProfile?.rollNumber || userProfile?.displayName || user?.email || '')
+    : 'PROFESSOR';
 
   const {
     connectedStudents,
@@ -28,6 +45,7 @@ function App() {
     handRaises,
     announcements,
     pasteAlerts,
+    studentLanguages,
     syncCode,
     executeCode,
     raiseHand,
@@ -37,58 +55,112 @@ function App() {
     dismissAnnouncement,
     reportPaste,
     dismissPasteAlert,
-  } = useCollabSocket({ isJoined, role, lobbyCode, studentId });
+  } = useCollabSocket({ isJoined: inSession, role, lobbyCode, studentId });
 
-  const handleJoin = ({ lobbyCode: code, studentId: id, role: r }) => {
+  const handleJoinSession = async (code) => {
     setLobbyCode(code);
-    setStudentId(id);
-    setRole(r);
-    setIsJoined(true);
-    sessionStorage.setItem('collablab_joined', 'true');
-    sessionStorage.setItem('collablab_lobby', code);
-    sessionStorage.setItem('collablab_id', id);
-    sessionStorage.setItem('collablab_role', r);
+    setInSession(true);
+
+    if (role === 'student') {
+      try {
+        const partDoc = await addDoc(collection(db, 'sessionParticipants'), {
+          lobbyCode: code,
+          studentUid: user.uid,
+          studentName: userProfile?.displayName || '',
+          rollNumber: userProfile?.rollNumber || '',
+          joinedAt: serverTimestamp(),
+          leftAt: null,
+          status: 'in_progress',
+          languages: [],
+          professorName: '',
+        });
+        setParticipantDocId(partDoc.id);
+      } catch (err) {
+        console.error('Failed to record session participation:', err);
+      }
+    }
+  };
+
+  const handleCreateSession = async (code) => {
+    setLobbyCode(code);
+    setInSession(true);
+
+    try {
+      const sessDoc = await addDoc(collection(db, 'sessions'), {
+        lobbyCode: code,
+        professorUid: user.uid,
+        professorName: userProfile?.displayName || '',
+        startedAt: serverTimestamp(),
+        endedAt: null,
+        languages: [],
+        studentCount: 0,
+      });
+      setSessionDocId(sessDoc.id);
+    } catch (err) {
+      console.error('Failed to record session:', err);
+    }
+  };
+
+  const leaveSession = async () => {
+    if (participantDocId) {
+      try {
+        await updateDoc(doc(db, 'sessionParticipants', participantDocId), {
+          leftAt: serverTimestamp(),
+          status: 'completed',
+          languages: [selectedLanguage],
+        });
+      } catch (err) {
+        console.error('Failed to update participation:', err);
+      }
+    }
+    if (sessionDocId) {
+      try {
+        await updateDoc(doc(db, 'sessions', sessionDocId), {
+          endedAt: serverTimestamp(),
+          studentCount: connectedStudents.length,
+        });
+      } catch (err) {
+        console.error('Failed to update session:', err);
+      }
+    }
+    setInSession(false);
+    setLobbyCode('');
+    setIsHandRaised(false);
+    setSessionDocId(null);
+    setParticipantDocId(null);
   };
 
   React.useEffect(() => {
-    if (socketError) {
-      setIsJoined(false);
-      sessionStorage.removeItem('collablab_joined');
+    if (socketError && inSession) {
+      leaveSession();
     }
   }, [socketError]);
+
+  const handleRaiseHand = () => { raiseHand(); setIsHandRaised(true); };
+  const handleLowerHand = () => { lowerHand(); setIsHandRaised(false); };
+
+  if (loading) {
+    return (
+      <div className="w-screen h-screen flex items-center justify-center bg-neutral-950 text-neutral-500 font-mono text-xs">
+        Loading...
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginScreen isDark={isDark} setIsDark={setIsDark} />;
+  }
+
+  if (!inSession) {
+    if (role === 'professor') {
+      return <ProfessorLobby isDark={isDark} onCreateSession={handleCreateSession} onSignOut={signOut} />;
+    }
+    return <StudentDashboard isDark={isDark} onJoinSession={handleJoinSession} onSignOut={signOut} />;
+  }
 
   const themeClass = isDark ? 'bg-neutral-950 text-neutral-200' : 'bg-neutral-50 text-neutral-900';
   const borderClass = isDark ? 'border-neutral-800' : 'border-neutral-200';
   const headerClass = isDark ? 'bg-neutral-900' : 'bg-white shadow-sm';
-
-  const leaveSession = () => {
-    setIsJoined(false);
-    setIsHandRaised(false);
-    sessionStorage.removeItem('collablab_joined');
-    sessionStorage.removeItem('collablab_lobby');
-    sessionStorage.removeItem('collablab_id');
-    sessionStorage.removeItem('collablab_role');
-  };
-
-  const handleRaiseHand = () => {
-    raiseHand();
-    setIsHandRaised(true);
-  };
-  const handleLowerHand = () => {
-    lowerHand();
-    setIsHandRaised(false);
-  };
-
-  if (!isJoined) {
-    return (
-      <LoginScreen
-        onJoin={handleJoin}
-        isDark={isDark}
-        setIsDark={setIsDark}
-        errorMessage={socketError}
-      />
-    );
-  }
 
   return (
     <div className={`w-screen h-screen flex flex-col font-mono overflow-hidden transition-colors duration-300 ${themeClass}`}>
@@ -103,7 +175,6 @@ function App() {
           <button
             onClick={() => setIsDark(!isDark)}
             className="flex items-center gap-2 hover:opacity-70 transition"
-            aria-label="Toggle theme"
           >
             {isDark ? <Sun size={12} /> : <Moon size={12} />}
             <span className="hidden sm:inline uppercase">{isDark ? 'Light' : 'Dark'} Mode</span>
@@ -111,14 +182,12 @@ function App() {
           <span className="uppercase text-neutral-500">
             USER:{' '}
             <span className="text-emerald-500 font-bold">
-              {role === 'professor' ? 'PROFESSOR' : studentId}
+              {role === 'professor' ? 'PROFESSOR' : (userProfile?.rollNumber || studentId)}
             </span>
           </span>
           <button
-            id="leave-session-btn"
             onClick={leaveSession}
             className="flex items-center gap-1.5 bg-red-600/80 hover:bg-red-500 text-white px-2.5 py-1 rounded transition font-bold uppercase"
-            title="Leave this session"
           >
             <LogOut size={10} /> Leave
           </button>
@@ -158,10 +227,19 @@ function App() {
             onSendAnnouncement={sendAnnouncement}
             pasteAlerts={pasteAlerts}
             onDismissPasteAlert={dismissPasteAlert}
+            studentLanguages={studentLanguages}
           />
         )}
       </main>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 

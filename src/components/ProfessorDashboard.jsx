@@ -20,6 +20,7 @@ export default function ProfessorDashboard({
   onSendAnnouncement,
   pasteAlerts,
   onDismissPasteAlert,
+  studentLanguages,
 }) {
   const [activeCollabStudent, setActiveCollabStudent] = useState(null);
   const [announcementText, setAnnouncementText] = useState('');
@@ -148,6 +149,7 @@ export default function ProfessorDashboard({
             onAcknowledgeHand={onAcknowledgeHand}
             pasteAlerts={pasteAlerts}
             onDismissPasteAlert={onDismissPasteAlert}
+            studentLanguages={studentLanguages}
           />
         )}
       </div>

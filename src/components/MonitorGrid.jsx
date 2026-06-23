@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Maximize2, Grid, Clipboard } from 'lucide-react';
 
-export default function MonitorGrid({ isDark, studentStreams, studentOutputs, handRaises, onAcknowledgeHand, pasteAlerts, onDismissPasteAlert }) {
+export default function MonitorGrid({ isDark, studentStreams, studentOutputs, handRaises, onAcknowledgeHand, pasteAlerts, onDismissPasteAlert, studentLanguages }) {
   const [focusedStudent, setFocusedStudent] = useState(null);
   const borderClass = isDark ? 'border-neutral-800' : 'border-neutral-200';
   const streamIds = Object.keys(studentStreams);
@@ -52,6 +52,11 @@ export default function MonitorGrid({ isDark, studentStreams, studentOutputs, ha
             }`}>
               <div className="flex items-center gap-2">
                 <span>ID: {studentId}</span>
+                {studentLanguages && studentLanguages[studentId] && (
+                  <span className={`px-1.5 py-0.5 rounded text-[7px] font-bold uppercase ${isDark ? 'bg-indigo-500/20 text-indigo-400' : 'bg-indigo-100 text-indigo-700'}`}>
+                    {studentLanguages[studentId]}
+                  </span>
+                )}
                 {handRaises.has(studentId) && (
                   <button
                     onClick={() => onAcknowledgeHand(studentId)}
