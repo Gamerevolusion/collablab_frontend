@@ -71,7 +71,7 @@ export default function StudentWorkspace({
   const headerClass = isDark ? 'bg-neutral-900' : 'bg-white shadow-sm';
 
   const activeFile = files[activeFileIdx] || files[0];
-  const isHtml = activeFile?.name?.endsWith('.html') || activeFile?.name?.endsWith('.htm');
+  const isWebMode = selectedLanguage === 'html';
   const monacoLang = getMonacoLang(activeFile?.name || 'main.py');
 
   const handleEditorChange = useCallback((value) => {
@@ -81,22 +81,31 @@ export default function StudentWorkspace({
     setLocalCode(value || '');
     onSyncCode(value || '', monacoLang, activeFile.name);
 
-    if (isHtml) {
+    if (isWebMode) {
       // Build combined HTML preview with CSS and JS files
-      let htmlContent = value || '';
-      const cssFiles = files.filter(f => f.name.endsWith('.css'));
-      const jsFiles = files.filter(f => f.name.endsWith('.js'));
+      let htmlContent = updated.find(f => f.name.endsWith('.html') || f.name.endsWith('.htm'))?.content || '';
+      const cssFiles = updated.filter(f => f.name.endsWith('.css'));
+      const jsFiles = updated.filter(f => f.name.endsWith('.js'));
       const styleTag = cssFiles.map(f => `<style>/* ${f.name} */\n${f.content}</style>`).join('\n');
       const scriptTag = jsFiles.map(f => `<script>/* ${f.name} */\n${f.content}<\/script>`).join('\n');
-      if (styleTag && !htmlContent.includes('<style>')) {
-        htmlContent = htmlContent.replace('</head>', styleTag + '\n</head>');
+      
+      if (styleTag) {
+        if (htmlContent.includes('</head>')) {
+          htmlContent = htmlContent.replace('</head>', styleTag + '\n</head>');
+        } else {
+          htmlContent = styleTag + '\n' + htmlContent;
+        }
       }
-      if (scriptTag && !htmlContent.includes('<script>')) {
-        htmlContent = htmlContent.replace('</body>', scriptTag + '\n</body>');
+      if (scriptTag) {
+        if (htmlContent.includes('</body>')) {
+          htmlContent = htmlContent.replace('</body>', scriptTag + '\n</body>');
+        } else {
+          htmlContent = htmlContent + '\n' + scriptTag;
+        }
       }
       setHtmlPreview(htmlContent);
     }
-  }, [files, activeFileIdx, monacoLang, activeFile?.name, isHtml, onSyncCode, setLocalCode]);
+  }, [files, activeFileIdx, monacoLang, activeFile?.name, isWebMode, onSyncCode, setLocalCode]);
 
   const handleEditorMount = (editor, monaco) => {
     editorRef.current = editor;
@@ -119,18 +128,27 @@ export default function StudentWorkspace({
   };
 
   const handleRun = () => {
-    if (isHtml) {
+    if (isWebMode) {
       // Build combined preview
-      let htmlContent = activeFile.content || '';
+      let htmlContent = files.find(f => f.name.endsWith('.html') || f.name.endsWith('.htm'))?.content || '';
       const cssFiles = files.filter(f => f.name.endsWith('.css'));
       const jsFiles = files.filter(f => f.name.endsWith('.js'));
       const styleTag = cssFiles.map(f => `<style>/* ${f.name} */\n${f.content}</style>`).join('\n');
       const scriptTag = jsFiles.map(f => `<script>/* ${f.name} */\n${f.content}<\/script>`).join('\n');
-      if (styleTag && !htmlContent.includes('<style>')) {
-        htmlContent = htmlContent.replace('</head>', styleTag + '\n</head>');
+      
+      if (styleTag) {
+        if (htmlContent.includes('</head>')) {
+          htmlContent = htmlContent.replace('</head>', styleTag + '\n</head>');
+        } else {
+          htmlContent = styleTag + '\n' + htmlContent;
+        }
       }
-      if (scriptTag && !htmlContent.includes('<script>')) {
-        htmlContent = htmlContent.replace('</body>', scriptTag + '\n</body>');
+      if (scriptTag) {
+        if (htmlContent.includes('</body>')) {
+          htmlContent = htmlContent.replace('</body>', scriptTag + '\n</body>');
+        } else {
+          htmlContent = htmlContent + '\n' + scriptTag;
+        }
       }
       setHtmlPreview(htmlContent);
       setShowPreview(true);
@@ -216,7 +234,7 @@ export default function StudentWorkspace({
               <option key={l.value} value={l.value}>{l.label}</option>
             ))}
           </select>
-          {isHtml && (
+          {isWebMode && (
             <button
               onClick={() => setShowPreview(!showPreview)}
               className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold transition ${
@@ -245,7 +263,7 @@ export default function StudentWorkspace({
             disabled={isRunning}
             className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded text-[10px] font-bold transition disabled:opacity-50"
           >
-            <Play size={10} /> {isRunning ? 'RUNNING...' : isHtml ? 'PREVIEW' : 'RUN CODE'}
+            <Play size={10} /> {isRunning ? 'RUNNING...' : isWebMode ? 'PREVIEW' : 'RUN CODE'}
           </button>
         </div>
       </div>
@@ -300,7 +318,7 @@ export default function StudentWorkspace({
       </div>
 
       {/* Editor */}
-      <div className={`${isHtml && showPreview ? 'h-[50%]' : 'h-[60%]'} w-full border-b ${borderClass}`}>
+      <div className={`${isWebMode && showPreview ? 'h-[50%]' : 'h-[60%]'} w-full border-b ${borderClass}`}>
         <Editor
           key={activeFile.name}
           height="100%"
@@ -315,7 +333,7 @@ export default function StudentWorkspace({
       </div>
 
       {/* Output / Preview */}
-      {isHtml && showPreview ? (
+      {isWebMode && showPreview ? (
         <div className={`h-[50%] w-full border-b ${borderClass} relative`}>
           <div className="absolute top-1 left-3 text-[9px] text-neutral-500 font-bold uppercase z-10">Live Preview</div>
           <iframe
