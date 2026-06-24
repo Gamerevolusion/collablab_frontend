@@ -71,7 +71,7 @@ export default function StudentWorkspace({
   const headerClass = isDark ? 'bg-neutral-900' : 'bg-white shadow-sm';
 
   const activeFile = files[activeFileIdx] || files[0];
-  const isWebMode = selectedLanguage === 'html';
+  const isWebMode = selectedLanguage === 'html' || files.some(f => f.name.endsWith('.html') || f.name.endsWith('.htm'));
   const monacoLang = getMonacoLang(activeFile?.name || 'main.py');
 
   const handleEditorChange = useCallback((value) => {
