@@ -6,7 +6,7 @@ const WS_URL = 'wss://collablab-backend.onrender.com';
 export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
   const socketRef = useRef(null);
   const [connectedStudents, setConnectedStudents] = useState([]);
-  const [studentStreams, setStudentStreams] = useState({});
+  const [studentStreams, setStudentStreams] = useState({}); // { rollNumber: { fileName: code } }
   const [studentOutputs, setStudentOutputs] = useState({});
   const [terminalOutput, setTerminalOutput] = useState('Terminal standing by...');
   const [isRunning, setIsRunning] = useState(false);
@@ -15,6 +15,8 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
   const [announcements, setAnnouncements] = useState([]);
   const [pasteAlerts, setPasteAlerts] = useState({});
   const [studentLanguages, setStudentLanguages] = useState({});
+  const [studentActiveFiles, setStudentActiveFiles] = useState({}); // { rollNumber: fileName }
+  const [studentFileList, setStudentFileList] = useState({}); // { rollNumber: [fileName, ...] }
 
   useEffect(() => {
     if (!isJoined) return;
@@ -52,8 +54,28 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
         case 'STUDENT_STREAM': {
           const rawDelta = payload.delta;
           const deltaStr = typeof rawDelta === 'object' && rawDelta !== null ? (rawDelta.code || '') : (rawDelta || '');
-          setStudentStreams(prev => ({ ...prev, [payload.rollNumber]: deltaStr }));
-          if (payload.language) setStudentLanguages(prev => ({ ...prev, [payload.rollNumber]: payload.language }));
+          const fileName = payload.fileName || 'main';
+          const roll = payload.rollNumber;
+
+          // Store per-file content
+          setStudentStreams(prev => ({
+            ...prev,
+            [roll]: { ...(prev[roll] || {}), [fileName]: deltaStr }
+          }));
+
+          // Track active file
+          setStudentActiveFiles(prev => ({ ...prev, [roll]: fileName }));
+
+          // Track file list
+          setStudentFileList(prev => {
+            const existing = prev[roll] || [];
+            if (!existing.includes(fileName)) {
+              return { ...prev, [roll]: [...existing, fileName] };
+            }
+            return prev;
+          });
+
+          if (payload.language) setStudentLanguages(prev => ({ ...prev, [roll]: payload.language }));
           break;
         }
         case 'EXECUTION_RESULT':
@@ -102,8 +124,8 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
     }
   }, [lobbyCode]);
 
-  const syncCode = useCallback((code, language) => {
-    sendMessage('SYNC_UPDATE', { code, language });
+  const syncCode = useCallback((code, language, fileName = 'main') => {
+    sendMessage('SYNC_UPDATE', { code, language, fileName });
   }, [sendMessage]);
 
   const executeCode = useCallback((language, code, stdin = '') => {
@@ -160,6 +182,8 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
     announcements,
     pasteAlerts,
     studentLanguages,
+    studentActiveFiles,
+    studentFileList,
     syncCode,
     executeCode,
     raiseHand,
@@ -171,3 +195,14 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
     dismissPasteAlert,
   };
 }
+
+
+// Central API Gateway URL
+const WS_URL = 'wss://collablab-backend.onrender.com';
+
+export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
+  const socketRef = useRef(null);
+  const [connectedStudents, setConnectedStudents] = useState([]);
+  const [studentStreams, setStudentStreams] = useState({});
+  const [studentOutputs, setStudentOutputs] = useState({});
+  const [terminalOutput, setTerminalOutput] = useState('Terminal standing by...');

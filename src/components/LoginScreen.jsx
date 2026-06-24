@@ -11,6 +11,7 @@ export default function LoginScreen({ isDark, setIsDark }) {
   const [fullName, setFullName] = useState('');
   const [rollNumber, setRollNumber] = useState('');
   const [role, setRole] = useState('student');
+  const [semester, setSemester] = useState('');
   const [adminKey, setAdminKey] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -33,6 +34,7 @@ export default function LoginScreen({ isDark, setIsDark }) {
       if (password !== confirmPassword) { setError('Passwords do not match.'); return; }
       if (!fullName.trim()) { setError('Full name is required.'); return; }
       if (role === 'student' && !rollNumber.trim()) { setError('Roll number is required for students.'); return; }
+      if (role === 'student' && !semester) { setError('Please select your current semester.'); return; }
       if (role === 'admin' && adminKey !== 'COLLABLAB_MASTER_2025') { setError('Invalid admin master key.'); return; }
     }
 
@@ -41,7 +43,7 @@ export default function LoginScreen({ isDark, setIsDark }) {
       if (mode === 'signin') {
         await signIn(email.trim(), password);
       } else {
-        await signUp({ email: email.trim(), password, role, fullName: fullName.trim(), rollNumber: rollNumber.trim() });
+        await signUp({ email: email.trim(), password, role, fullName: fullName.trim(), rollNumber: rollNumber.trim(), semester: role === 'student' ? parseInt(semester) : null });
       }
     } catch (err) {
       const msg = err.code === 'auth/user-not-found' ? 'No account found with this email.'
@@ -132,6 +134,20 @@ export default function LoginScreen({ isDark, setIsDark }) {
                     placeholder="e.g. 2301CS001"
                     className={`w-full border rounded px-2.5 py-2 text-xs focus:outline-none transition ${inputClass}`}
                   />
+                </div>
+              )}
+
+              {role === 'student' && (
+                <div>
+                  <label className="block text-[10px] uppercase text-neutral-500 mb-1 font-bold">Semester</label>
+                  <select
+                    value={semester}
+                    onChange={e => setSemester(e.target.value)}
+                    className={`w-full border rounded px-2.5 py-2 text-xs focus:outline-none transition ${inputClass}`}
+                  >
+                    <option value="">Select your semester...</option>
+                    {[1,2,3,4,5,6,7].map(s => <option key={s} value={s}>Semester {s}</option>)}
+                  </select>
                 </div>
               )}
 

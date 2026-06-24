@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LogOut, Clock, Users, ArrowRight, Calendar, Plus, BookOpen } from 'lucide-react';
+import { LogOut, Clock, Users, ArrowRight, Calendar, Plus, BookOpen, ChevronDown, ChevronRight } from 'lucide-react';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,6 +15,9 @@ export default function ProfessorLobby({ isDark, onCreateSession, onSignOut }) {
   const [subjects, setSubjects] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState('');
   const [loadingSubjects, setLoadingSubjects] = useState(false);
+  const [expandedSession, setExpandedSession] = useState(null);
+  const [attendanceData, setAttendanceData] = useState([]);
+  const [loadingAttendance, setLoadingAttendance] = useState(false);
 
   const borderClass = isDark ? 'border-neutral-800' : 'border-neutral-200';
   const cardClass = isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-white border-neutral-200 shadow-sm';
@@ -247,17 +250,93 @@ export default function ProfessorLobby({ isDark, onCreateSession, onSignOut }) {
                   </thead>
                   <tbody>
                     {sessions.map(s => (
-                      <tr key={s.id} className={`border-b ${borderClass} hover:bg-neutral-800/30 transition`}>
-                        <td className="py-2.5 px-3">
-                          <div>{formatDate(s.startedAt)}</div>
-                          <div className="text-[9px] text-neutral-500">{formatTime(s.startedAt)}</div>
-                        </td>
-                        <td className="py-2.5 px-3 font-bold">{s.lobbyCode}</td>
-                        <td className="py-2.5 px-3">{s.subject || '—'}</td>
-                        <td className="py-2.5 px-3">{s.semester || '—'}</td>
-                        <td className="py-2.5 px-3">{s.studentCount || 0}</td>
-                        <td className="py-2.5 px-3">{formatDuration(s.startedAt, s.endedAt)}</td>
-                      </tr>
+                      <React.Fragment key={s.id}>
+                        <tr
+                          className={`border-b ${borderClass} hover:bg-neutral-800/30 transition cursor-pointer`}
+                          onClick={async () => {
+                            if (expandedSession === s.id) {
+                              setExpandedSession(null);
+                              setAttendanceData([]);
+                              return;
+                            }
+                            setExpandedSession(s.id);
+                            setLoadingAttendance(true);
+                            try {
+                              const q = query(
+                                collection(db, 'sessionParticipants'),
+                                where('sessionId', '==', s.id)
+                              );
+                              const snap = await getDocs(q);
+                              setAttendanceData(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+                            } catch (err) {
+                              console.error('Failed to load attendance:', err);
+                              setAttendanceData([]);
+                            } finally {
+                              setLoadingAttendance(false);
+                            }
+                          }}
+                        >
+                          <td className="py-2.5 px-3">
+                            <div className="flex items-center gap-1.5">
+                              {expandedSession === s.id ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+                              <div>
+                                <div>{formatDate(s.startedAt)}</div>
+                                <div className="text-[9px] text-neutral-500">{formatTime(s.startedAt)}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3 font-bold">{s.lobbyCode}</td>
+                          <td className="py-2.5 px-3">{s.subject || '—'}</td>
+                          <td className="py-2.5 px-3">{s.semester || '—'}</td>
+                          <td className="py-2.5 px-3">{s.studentCount || 0}</td>
+                          <td className="py-2.5 px-3">{formatDuration(s.startedAt, s.endedAt)}</td>
+                        </tr>
+                        {expandedSession === s.id && (
+                          <tr>
+                            <td colSpan="6" className={`p-0 ${isDark ? 'bg-neutral-950' : 'bg-neutral-50'}`}>
+                              <div className="px-6 py-3">
+                                <div className="text-[9px] font-bold uppercase text-neutral-500 mb-2 flex items-center gap-1">
+                                  <Users size={9} /> Attendance — {attendanceData.length} student{attendanceData.length !== 1 ? 's' : ''}
+                                </div>
+                                {loadingAttendance ? (
+                                  <div className="text-[9px] text-neutral-600 py-2">Loading attendance...</div>
+                                ) : attendanceData.length === 0 ? (
+                                  <div className="text-[9px] text-neutral-600 py-2">No students recorded for this session.</div>
+                                ) : (
+                                  <table className="w-full text-[10px]">
+                                    <thead>
+                                      <tr className={`border-b ${borderClass}`}>
+                                        <th className="text-left py-1.5 px-2 text-[8px] uppercase text-neutral-500 font-bold">#</th>
+                                        <th className="text-left py-1.5 px-2 text-[8px] uppercase text-neutral-500 font-bold">Name</th>
+                                        <th className="text-left py-1.5 px-2 text-[8px] uppercase text-neutral-500 font-bold">Roll Number</th>
+                                        <th className="text-left py-1.5 px-2 text-[8px] uppercase text-neutral-500 font-bold">Joined</th>
+                                        <th className="text-left py-1.5 px-2 text-[8px] uppercase text-neutral-500 font-bold">Duration</th>
+                                        <th className="text-left py-1.5 px-2 text-[8px] uppercase text-neutral-500 font-bold">Status</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {attendanceData.map((a, idx) => (
+                                        <tr key={a.id} className={`border-b ${borderClass}`}>
+                                          <td className="py-1.5 px-2 text-neutral-500">{idx + 1}</td>
+                                          <td className="py-1.5 px-2 font-medium">{a.studentName || '—'}</td>
+                                          <td className="py-1.5 px-2 font-bold">{a.rollNumber || '—'}</td>
+                                          <td className="py-1.5 px-2">{formatTime(a.joinedAt)}</td>
+                                          <td className="py-1.5 px-2">{formatDuration(a.joinedAt, a.leftAt)}</td>
+                                          <td className="py-1.5 px-2">
+                                            <span className={`px-1.5 py-0.5 rounded text-[7px] font-bold uppercase ${a.status === 'completed' ? (isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-700') : (isDark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700')}`}>
+                                              {a.status || 'unknown'}
+                                            </span>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     ))}
                   </tbody>
                 </table>

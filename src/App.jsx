@@ -15,6 +15,11 @@ import {
   collection,
   serverTimestamp,
   Timestamp,
+  query,
+  where,
+  orderBy,
+  limit,
+  getDocs,
 } from 'firebase/firestore';
 import { db } from './firebase';
 
@@ -47,6 +52,8 @@ function AppContent() {
     announcements,
     pasteAlerts,
     studentLanguages,
+    studentActiveFiles,
+    studentFileList,
     syncCode,
     executeCode,
     raiseHand,
@@ -64,16 +71,43 @@ function AppContent() {
 
     if (role === 'student') {
       try {
+        // Find the active session by lobbyCode to get sessionId, semester, subject
+        let activeSessionId = '';
+        let sessionSemester = null;
+        let sessionSubject = '';
+        let sessionProfessorName = '';
+        try {
+          const sessQ = query(
+            collection(db, 'sessions'),
+            where('lobbyCode', '==', code),
+            orderBy('startedAt', 'desc'),
+            limit(1)
+          );
+          const sessSnap = await getDocs(sessQ);
+          if (!sessSnap.empty) {
+            const sessData = sessSnap.docs[0];
+            activeSessionId = sessData.id;
+            sessionSemester = sessData.data().semester || null;
+            sessionSubject = sessData.data().subject || '';
+            sessionProfessorName = sessData.data().professorName || '';
+          }
+        } catch (err) {
+          console.warn('Could not look up active session:', err);
+        }
+
         const partDoc = await addDoc(collection(db, 'sessionParticipants'), {
           lobbyCode: code,
+          sessionId: activeSessionId,
           studentUid: user.uid,
           studentName: userProfile?.displayName || '',
           rollNumber: userProfile?.rollNumber || '',
+          semester: sessionSemester,
+          subject: sessionSubject,
           joinedAt: serverTimestamp(),
           leftAt: null,
           status: 'in_progress',
           languages: [],
-          professorName: '',
+          professorName: sessionProfessorName,
         });
         setParticipantDocId(partDoc.id);
       } catch (err) {
@@ -234,6 +268,8 @@ function AppContent() {
             pasteAlerts={pasteAlerts}
             onDismissPasteAlert={dismissPasteAlert}
             studentLanguages={studentLanguages}
+            studentActiveFiles={studentActiveFiles}
+            studentFileList={studentFileList}
           />
         )}
       </main>

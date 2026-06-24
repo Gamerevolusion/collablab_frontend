@@ -1,6 +1,6 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import Editor from '@monaco-editor/react';
-import { Play, Hand, Megaphone, X, Eye } from 'lucide-react';
+import { Play, Hand, Megaphone, X, Eye, Plus, FileText, Trash2 } from 'lucide-react';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import { MonacoBinding } from 'y-monaco';
@@ -8,14 +8,31 @@ import { MonacoBinding } from 'y-monaco';
 const CRDT_URL = 'wss://collablab-sync-engine.onrender.com';
 
 const LANGUAGES = [
-  { value: 'python', label: 'Python 3', monaco: 'python' },
-  { value: 'javascript', label: 'Node.js', monaco: 'javascript' },
-  { value: 'html', label: 'HTML / CSS', monaco: 'html' },
-  { value: 'c', label: 'C', monaco: 'c' },
-  { value: 'cpp', label: 'C++', monaco: 'cpp' },
-  { value: 'r', label: 'R', monaco: 'r' },
-  { value: 'sql', label: 'SQL', monaco: 'sql' },
+  { value: 'python', label: 'Python 3', monaco: 'python', ext: '.py' },
+  { value: 'javascript', label: 'Node.js', monaco: 'javascript', ext: '.js' },
+  { value: 'html', label: 'HTML / CSS', monaco: 'html', ext: '.html' },
+  { value: 'c', label: 'C', monaco: 'c', ext: '.c' },
+  { value: 'cpp', label: 'C++', monaco: 'cpp', ext: '.cpp' },
+  { value: 'r', label: 'R', monaco: 'r', ext: '.r' },
+  { value: 'sql', label: 'SQL', monaco: 'sql', ext: '.sql' },
 ];
+
+const EXT_TO_LANG = {
+  '.py': 'python',
+  '.js': 'javascript',
+  '.html': 'html',
+  '.htm': 'html',
+  '.css': 'css',
+  '.c': 'c',
+  '.cpp': 'cpp',
+  '.r': 'r',
+  '.sql': 'sql',
+};
+
+const getMonacoLang = (fileName) => {
+  const ext = '.' + fileName.split('.').pop().toLowerCase();
+  return EXT_TO_LANG[ext] || 'plaintext';
+};
 
 export default function StudentWorkspace({
   isDark,
@@ -40,21 +57,51 @@ export default function StudentWorkspace({
   const [showPreview, setShowPreview] = useState(false);
   const [htmlPreview, setHtmlPreview] = useState('');
   const [stdin, setStdin] = useState('');
+
+  // Multi-file state
+  const [files, setFiles] = useState(() => {
+    const defaultName = selectedLanguage === 'html' ? 'index.html' : selectedLanguage === 'python' ? 'main.py' : 'main.js';
+    return [{ name: defaultName, content: localCode || '' }];
+  });
+  const [activeFileIdx, setActiveFileIdx] = useState(0);
+  const [showNewFile, setShowNewFile] = useState(false);
+  const [newFileName, setNewFileName] = useState('');
+
   const borderClass = isDark ? 'border-neutral-800' : 'border-neutral-200';
   const headerClass = isDark ? 'bg-neutral-900' : 'bg-white shadow-sm';
 
-  const isHtml = selectedLanguage === 'html';
+  const activeFile = files[activeFileIdx] || files[0];
+  const isHtml = activeFile?.name?.endsWith('.html') || activeFile?.name?.endsWith('.htm');
+  const monacoLang = getMonacoLang(activeFile?.name || 'main.py');
 
-  const handleEditorChange = (value) => {
+  const handleEditorChange = useCallback((value) => {
+    const updated = [...files];
+    updated[activeFileIdx] = { ...updated[activeFileIdx], content: value || '' };
+    setFiles(updated);
     setLocalCode(value || '');
-    onSyncCode(value || '', selectedLanguage);
-    if (isHtml) setHtmlPreview(value || '');
-  };
+    onSyncCode(value || '', monacoLang, activeFile.name);
+
+    if (isHtml) {
+      // Build combined HTML preview with CSS and JS files
+      let htmlContent = value || '';
+      const cssFiles = files.filter(f => f.name.endsWith('.css'));
+      const jsFiles = files.filter(f => f.name.endsWith('.js'));
+      const styleTag = cssFiles.map(f => `<style>/* ${f.name} */\n${f.content}</style>`).join('\n');
+      const scriptTag = jsFiles.map(f => `<script>/* ${f.name} */\n${f.content}<\/script>`).join('\n');
+      if (styleTag && !htmlContent.includes('<style>')) {
+        htmlContent = htmlContent.replace('</head>', styleTag + '\n</head>');
+      }
+      if (scriptTag && !htmlContent.includes('<script>')) {
+        htmlContent = htmlContent.replace('</body>', scriptTag + '\n</body>');
+      }
+      setHtmlPreview(htmlContent);
+    }
+  }, [files, activeFileIdx, monacoLang, activeFile?.name, isHtml, onSyncCode, setLocalCode]);
 
   const handleEditorMount = (editor, monaco) => {
     editorRef.current = editor;
     const ydoc = new Y.Doc();
-    const roomName = `collablab-${lobbyCode}-${studentId}`;
+    const roomName = `collablab-${lobbyCode}-${studentId}-${activeFile.name}`;
     const provider = new WebsocketProvider(CRDT_URL, roomName, ydoc);
     const ytext = ydoc.getText('monaco');
     new MonacoBinding(ytext, editor.getModel(), new Set([editor]), provider.awareness);
@@ -72,18 +119,61 @@ export default function StudentWorkspace({
   };
 
   const handleRun = () => {
-    const codeToRun = editorRef.current ? editorRef.current.getValue() : localCode;
     if (isHtml) {
-      setHtmlPreview(codeToRun);
+      // Build combined preview
+      let htmlContent = activeFile.content || '';
+      const cssFiles = files.filter(f => f.name.endsWith('.css'));
+      const jsFiles = files.filter(f => f.name.endsWith('.js'));
+      const styleTag = cssFiles.map(f => `<style>/* ${f.name} */\n${f.content}</style>`).join('\n');
+      const scriptTag = jsFiles.map(f => `<script>/* ${f.name} */\n${f.content}<\/script>`).join('\n');
+      if (styleTag && !htmlContent.includes('<style>')) {
+        htmlContent = htmlContent.replace('</head>', styleTag + '\n</head>');
+      }
+      if (scriptTag && !htmlContent.includes('<script>')) {
+        htmlContent = htmlContent.replace('</body>', scriptTag + '\n</body>');
+      }
+      setHtmlPreview(htmlContent);
       setShowPreview(true);
       return;
     }
-    onExecuteCode(selectedLanguage, codeToRun, stdin);
+    const codeToRun = editorRef.current ? editorRef.current.getValue() : activeFile.content;
+    const lang = getMonacoLang(activeFile.name);
+    const execLang = lang === 'css' ? 'html' : (LANGUAGES.find(l => l.monaco === lang)?.value || selectedLanguage);
+    onExecuteCode(execLang, codeToRun, stdin);
   };
 
   const toggleHand = () => {
     if (isHandRaised) onLowerHand();
     else onRaiseHand();
+  };
+
+  const addFile = () => {
+    const name = newFileName.trim();
+    if (!name || files.some(f => f.name === name)) return;
+    setFiles(prev => [...prev, { name, content: '' }]);
+    setActiveFileIdx(files.length);
+    setNewFileName('');
+    setShowNewFile(false);
+  };
+
+  const removeFile = (idx) => {
+    if (files.length <= 1) return;
+    const updated = files.filter((_, i) => i !== idx);
+    setFiles(updated);
+    if (activeFileIdx >= updated.length) setActiveFileIdx(updated.length - 1);
+    else if (activeFileIdx === idx) setActiveFileIdx(0);
+  };
+
+  const switchFile = (idx) => {
+    // Save current editor content
+    if (editorRef.current) {
+      const currentContent = editorRef.current.getValue();
+      const updated = [...files];
+      updated[activeFileIdx] = { ...updated[activeFileIdx], content: currentContent };
+      setFiles(updated);
+    }
+    setActiveFileIdx(idx);
+    setLocalCode(files[idx]?.content || '');
   };
 
   useEffect(() => {
@@ -92,8 +182,6 @@ export default function StudentWorkspace({
     const timer = setTimeout(() => onDismissAnnouncement(latest.id), 15000);
     return () => clearTimeout(timer);
   }, [announcements, onDismissAnnouncement]);
-
-  const currentLang = LANGUAGES.find(l => l.value === selectedLanguage) || LANGUAGES[0];
 
   return (
     <div className="flex-1 flex flex-col h-full">
@@ -115,6 +203,8 @@ export default function StudentWorkspace({
           ))}
         </div>
       )}
+
+      {/* Toolbar */}
       <div className={`flex items-center justify-between border-b px-4 py-2 ${headerClass} ${borderClass}`}>
         <div className="flex items-center gap-3">
           <select
@@ -160,18 +250,71 @@ export default function StudentWorkspace({
         </div>
       </div>
 
-      <div className={`${isHtml && showPreview ? 'h-[50%]' : 'h-[65%]'} w-full border-b ${borderClass}`}>
+      {/* File tabs */}
+      <div className={`flex items-center gap-0.5 px-3 py-1.5 border-b overflow-x-auto ${isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-neutral-50 border-neutral-200'}`}>
+        {files.map((f, idx) => (
+          <div
+            key={f.name}
+            className={`group flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold cursor-pointer transition ${
+              idx === activeFileIdx
+                ? (isDark ? 'bg-neutral-700 text-white' : 'bg-white text-black shadow-sm')
+                : (isDark ? 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800' : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100')
+            }`}
+            onClick={() => switchFile(idx)}
+          >
+            <FileText size={9} />
+            <span>{f.name}</span>
+            {files.length > 1 && (
+              <button
+                onClick={(e) => { e.stopPropagation(); removeFile(idx); }}
+                className="opacity-0 group-hover:opacity-100 hover:text-red-400 transition ml-0.5"
+              >
+                <X size={8} />
+              </button>
+            )}
+          </div>
+        ))}
+        {showNewFile ? (
+          <div className="flex items-center gap-1">
+            <input
+              type="text"
+              value={newFileName}
+              onChange={e => setNewFileName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') addFile(); if (e.key === 'Escape') setShowNewFile(false); }}
+              placeholder="e.g. style.css"
+              autoFocus
+              className={`border rounded px-2 py-0.5 text-[10px] w-28 focus:outline-none ${isDark ? 'bg-black border-neutral-700 text-white placeholder:text-neutral-600' : 'bg-white border-neutral-300 text-black placeholder:text-neutral-400'}`}
+            />
+            <button onClick={addFile} className="text-emerald-500 hover:text-emerald-400 text-[10px] font-bold">✓</button>
+            <button onClick={() => setShowNewFile(false)} className="text-red-500 hover:text-red-400 text-[10px] font-bold">✕</button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowNewFile(true)}
+            className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] transition ${isDark ? 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800' : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100'}`}
+            title="Add new file"
+          >
+            <Plus size={10} />
+          </button>
+        )}
+      </div>
+
+      {/* Editor */}
+      <div className={`${isHtml && showPreview ? 'h-[50%]' : 'h-[60%]'} w-full border-b ${borderClass}`}>
         <Editor
+          key={activeFile.name}
           height="100%"
           width="100%"
           theme={isDark ? 'vs-dark' : 'light'}
-          language={currentLang.monaco}
+          language={monacoLang}
+          defaultValue={activeFile.content}
           onChange={handleEditorChange}
           onMount={handleEditorMount}
           options={{ fontSize: 13, minimap: { enabled: false } }}
         />
       </div>
 
+      {/* Output / Preview */}
       {isHtml && showPreview ? (
         <div className={`h-[50%] w-full border-b ${borderClass} relative`}>
           <div className="absolute top-1 left-3 text-[9px] text-neutral-500 font-bold uppercase z-10">Live Preview</div>
@@ -183,7 +326,7 @@ export default function StudentWorkspace({
           />
         </div>
       ) : (
-        <div className={`h-[35%] w-full flex border-t ${borderClass}`}>
+        <div className={`flex-1 w-full flex border-t ${borderClass}`}>
           {/* Standard Input */}
           <div className={`w-1/3 p-4 border-r ${borderClass} flex flex-col ${isDark ? 'bg-[#0A0A0A]' : 'bg-white'}`}>
             <div className="text-[9px] text-neutral-500 font-bold uppercase mb-2">Standard Input (stdin)</div>

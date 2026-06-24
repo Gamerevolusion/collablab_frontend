@@ -21,6 +21,8 @@ export default function ProfessorDashboard({
   pasteAlerts,
   onDismissPasteAlert,
   studentLanguages,
+  studentActiveFiles,
+  studentFileList,
 }) {
   const [activeCollabStudent, setActiveCollabStudent] = useState(null);
   const [announcementText, setAnnouncementText] = useState('');
@@ -150,6 +152,8 @@ export default function ProfessorDashboard({
             pasteAlerts={pasteAlerts}
             onDismissPasteAlert={onDismissPasteAlert}
             studentLanguages={studentLanguages}
+            studentActiveFiles={studentActiveFiles}
+            studentFileList={studentFileList}
           />
         )}
       </div>
