@@ -195,14 +195,3 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
     dismissPasteAlert,
   };
 }
-
-
-// Central API Gateway URL
-const WS_URL = 'wss://collablab-backend.onrender.com';
-
-export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
-  const socketRef = useRef(null);
-  const [connectedStudents, setConnectedStudents] = useState([]);
-  const [studentStreams, setStudentStreams] = useState({});
-  const [studentOutputs, setStudentOutputs] = useState({});
-  const [terminalOutput, setTerminalOutput] = useState('Terminal standing by...');
