@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LogOut, Plus, Trash2, BookOpen, GraduationCap, Users, Search, Edit3, Eye, BarChart3, X, Save, ChevronRight } from 'lucide-react';
-import { collection, query, where, orderBy, getDocs, addDoc, deleteDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, addDoc, deleteDoc, updateDoc, doc, serverTimestamp, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -221,7 +221,7 @@ function StudentsTab({ isDark, borderClass, cardClass, inputClass }) {
   const fetchStudents = async () => {
     setLoading(true);
     try {
-      const q = query(collection(db, 'users'), where('role', '==', 'student'));
+      const q = query(collection(db, 'users'), where('role', '==', 'student'), limit(50));
       const snap = await getDocs(q);
       setStudents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (err) {

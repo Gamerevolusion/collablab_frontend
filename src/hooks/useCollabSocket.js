@@ -176,6 +176,7 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
     studentStreams,
     studentOutputs,
     terminalOutput,
+    setTerminalOutput,
     isRunning,
     error,
     handRaises,

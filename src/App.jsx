@@ -46,6 +46,7 @@ function AppContent() {
     studentStreams,
     studentOutputs,
     terminalOutput,
+    setTerminalOutput,
     isRunning,
     error: socketError,
     handRaises,
@@ -245,6 +246,7 @@ function AppContent() {
             selectedLanguage={selectedLanguage}
             setSelectedLanguage={setSelectedLanguage}
             terminalOutput={terminalOutput}
+            setTerminalOutput={setTerminalOutput}
             isRunning={isRunning}
             onSyncCode={syncCode}
             onExecuteCode={executeCode}

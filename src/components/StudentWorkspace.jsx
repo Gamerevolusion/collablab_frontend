@@ -52,11 +52,43 @@ export default function StudentWorkspace({
   announcements,
   onDismissAnnouncement,
   onReportPaste,
+  setTerminalOutput
 }) {
   const editorRef = useRef(null);
   const [showPreview, setShowPreview] = useState(false);
   const [htmlPreview, setHtmlPreview] = useState('');
   const [stdin, setStdin] = useState('');
+
+  // Handle messages from the iframe for console logs and errors
+  useEffect(() => {
+    const handleMessage = (event) => {
+      if (event.data?.type === 'PREVIEW_LOG') {
+        setTerminalOutput(prev => prev === 'Terminal standing by...' ? event.data.payload : prev + '\n' + event.data.payload);
+      } else if (event.data?.type === 'PREVIEW_ERROR') {
+        setTerminalOutput(prev => prev === 'Terminal standing by...' ? '[ERROR] ' + event.data.payload : prev + '\n[ERROR] ' + event.data.payload);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [setTerminalOutput]);
+
+  const INJECTED_SCRIPT = `
+<script>
+  window.onerror = function(msg, url, line) {
+    window.parent.postMessage({ type: 'PREVIEW_ERROR', payload: msg + ' at line ' + line }, '*');
+  };
+  const originalLog = console.log;
+  console.log = function(...args) {
+    window.parent.postMessage({ type: 'PREVIEW_LOG', payload: args.join(' ') }, '*');
+    originalLog.apply(console, args);
+  };
+  const originalError = console.error;
+  console.error = function(...args) {
+    window.parent.postMessage({ type: 'PREVIEW_ERROR', payload: args.join(' ') }, '*');
+    originalError.apply(console, args);
+  };
+</script>
+`;
 
   // Multi-file state
   const [files, setFiles] = useState(() => {
@@ -96,6 +128,7 @@ export default function StudentWorkspace({
           htmlContent = styleTag + '\n' + htmlContent;
         }
       }
+      htmlContent = INJECTED_SCRIPT + '\\n' + htmlContent;
       if (scriptTag) {
         if (htmlContent.includes('</body>')) {
           htmlContent = htmlContent.replace('</body>', scriptTag + '\n</body>');
@@ -143,6 +176,7 @@ export default function StudentWorkspace({
           htmlContent = styleTag + '\n' + htmlContent;
         }
       }
+      htmlContent = INJECTED_SCRIPT + '\\n' + htmlContent;
       if (scriptTag) {
         if (htmlContent.includes('</body>')) {
           htmlContent = htmlContent.replace('</body>', scriptTag + '\n</body>');
