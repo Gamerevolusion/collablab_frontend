@@ -4,7 +4,7 @@ import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 
-const SEMESTERS = [1, 2, 3, 4, 5, 6, 7];
+const SEMESTERS = [1, 2, 3, 4, 5, 6];
 
 export default function ProfessorLobby({ isDark, onCreateSession, onSignOut }) {
   const { user, userProfile } = useAuth();

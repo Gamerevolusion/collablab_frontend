@@ -4,7 +4,7 @@ import { collection, query, where, orderBy, getDocs, addDoc, deleteDoc, updateDo
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 
-const SEMESTERS = [1, 2, 3, 4, 5, 6, 7];
+const SEMESTERS = [1, 2, 3, 4, 5, 6];
 const BACKEND_URL = 'https://collablab-backend.onrender.com';
 
 export default function AdminDashboard({ isDark, onSignOut }) {
