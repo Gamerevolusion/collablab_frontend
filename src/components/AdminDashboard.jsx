@@ -5,7 +5,9 @@ import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 
 const SEMESTERS = [1, 2, 3, 4, 5, 6];
-const BACKEND_URL = 'https://collablab-backend.onrender.com';
+const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+  ? 'http://localhost:4000' 
+  : 'https://collablab-backend.onrender.com';
 
 export default function AdminDashboard({ isDark, onSignOut }) {
   const { user, userProfile } = useAuth();
