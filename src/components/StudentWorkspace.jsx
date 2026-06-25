@@ -11,11 +11,23 @@ const LANGUAGES = [
   { value: 'python', label: 'Python 3', monaco: 'python', ext: '.py' },
   { value: 'javascript', label: 'Node.js', monaco: 'javascript', ext: '.js' },
   { value: 'html', label: 'HTML / CSS', monaco: 'html', ext: '.html' },
+  { value: 'java', label: 'Java', monaco: 'java', ext: '.java' },
   { value: 'c', label: 'C', monaco: 'c', ext: '.c' },
   { value: 'cpp', label: 'C++', monaco: 'cpp', ext: '.cpp' },
   { value: 'r', label: 'R', monaco: 'r', ext: '.r' },
   { value: 'sql', label: 'SQL', monaco: 'sql', ext: '.sql' },
 ];
+
+const LANG_TEMPLATES = {
+  python: 'print("Hello, Python!")\n',
+  javascript: 'console.log("Hello, Node.js!");\n',
+  html: '<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: sans-serif; text-align: center; margin-top: 50px; }\n  </style>\n</head>\n<body>\n  <h1>Hello HTML</h1>\n</body>\n</html>\n',
+  java: 'public class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello, Java!");\n    }\n}\n',
+  c: '#include <stdio.h>\n\nint main() {\n    printf("Hello, C!\\n");\n    return 0;\n}\n',
+  cpp: '#include <iostream>\n\nint main() {\n    std::cout << "Hello, C++!" << std::endl;\n    return 0;\n}\n',
+  r: 'print("Hello, R!")\n',
+  sql: "CREATE TABLE users (id INTEGER, name TEXT);\nINSERT INTO users VALUES (1, 'CollabLab');\nSELECT * FROM users;\n"
+};
 
 const EXT_TO_LANG = {
   '.py': 'python',
@@ -23,6 +35,7 @@ const EXT_TO_LANG = {
   '.html': 'html',
   '.htm': 'html',
   '.css': 'css',
+  '.java': 'java',
   '.c': 'c',
   '.cpp': 'cpp',
   '.r': 'r',
@@ -92,8 +105,15 @@ export default function StudentWorkspace({
 
   // Multi-file state
   const [files, setFiles] = useState(() => {
-    const defaultName = selectedLanguage === 'html' ? 'index.html' : selectedLanguage === 'python' ? 'main.py' : 'main.js';
-    return [{ name: defaultName, content: localCode || '' }];
+    let defaultName = 'main.js';
+    if (selectedLanguage === 'html') defaultName = 'index.html';
+    else if (selectedLanguage === 'python') defaultName = 'main.py';
+    else if (selectedLanguage === 'java') defaultName = 'Main.java';
+    else {
+      const langConfig = LANGUAGES.find(l => l.value === selectedLanguage);
+      if (langConfig) defaultName = `main${langConfig.ext}`;
+    }
+    return [{ name: defaultName, content: localCode || LANG_TEMPLATES[selectedLanguage] || '' }];
   });
   const [activeFileIdx, setActiveFileIdx] = useState(0);
   const [showNewFile, setShowNewFile] = useState(false);
@@ -261,7 +281,24 @@ export default function StudentWorkspace({
         <div className="flex items-center gap-3">
           <select
             value={selectedLanguage}
-            onChange={(e) => setSelectedLanguage(e.target.value)}
+            onChange={(e) => {
+              const newLang = e.target.value;
+              setSelectedLanguage(newLang);
+              
+              let defaultName = 'main.js';
+              if (newLang === 'html') defaultName = 'index.html';
+              else if (newLang === 'python') defaultName = 'main.py';
+              else if (newLang === 'java') defaultName = 'Main.java';
+              else {
+                const langConfig = LANGUAGES.find(l => l.value === newLang);
+                if (langConfig) defaultName = `main${langConfig.ext}`;
+              }
+              
+              const newContent = LANG_TEMPLATES[newLang] || '';
+              setFiles([{ name: defaultName, content: newContent }]);
+              setActiveFileIdx(0);
+              setLocalCode(newContent);
+            }}
             className={`border rounded text-[10px] px-2 py-1 focus:outline-none ${isDark ? 'bg-neutral-950 border-neutral-800' : 'bg-white border-neutral-200 text-black'}`}
           >
             {LANGUAGES.map(l => (
