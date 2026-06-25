@@ -163,7 +163,8 @@ export default function StudentWorkspace({
   const handleEditorMount = (editor, monaco) => {
     editorRef.current = editor;
     const ydoc = new Y.Doc();
-    const roomName = `collablab-${lobbyCode}-${studentId}-${activeFile.name}`;
+    const safeId = studentId.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const roomName = `collablab-${lobbyCode}-${safeId}-${activeFile.name}`;
     const provider = new WebsocketProvider(CRDT_URL, roomName, ydoc);
     const ytext = ydoc.getText('monaco');
     new MonacoBinding(ytext, editor.getModel(), new Set([editor]), provider.awareness);
@@ -245,7 +246,14 @@ export default function StudentWorkspace({
       setFiles(updated);
     }
     setActiveFileIdx(idx);
-    setLocalCode(files[idx]?.content || '');
+    const targetFile = files[idx];
+    setLocalCode(targetFile?.content || '');
+    
+    if (targetFile) {
+      const lang = getMonacoLang(targetFile.name);
+      const execLang = lang === 'css' ? 'html' : (LANGUAGES.find(l => l.monaco === lang)?.value || selectedLanguage);
+      onSyncCode(execLang, targetFile.content || '', targetFile.name);
+    }
   };
 
   useEffect(() => {

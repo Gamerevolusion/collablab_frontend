@@ -28,9 +28,9 @@ export default function ProfessorDashboard({
   const [announcementText, setAnnouncementText] = useState('');
   const borderClass = isDark ? 'border-neutral-800' : 'border-neutral-200';
 
-  const handleEditorMount = (editor, monaco, targetStudentId) => {
+  const handleEditorMount = (editor, monaco, targetStudentId, activeFileName) => {
     const ydoc = new Y.Doc();
-    const roomName = `collablab-${lobbyCode}-${targetStudentId}`;
+    const roomName = `collablab-${lobbyCode}-${targetStudentId}-${activeFileName}`;
     const provider = new WebsocketProvider(CRDT_URL, roomName, ydoc);
     const ytext = ydoc.getText('monaco');
     new MonacoBinding(ytext, editor.getModel(), new Set([editor]), provider.awareness);
@@ -131,11 +131,12 @@ export default function ProfessorDashboard({
             </div>
             <div className="flex-1">
               <Editor
+                key={`${activeCollabStudent}-${studentActiveFiles[activeCollabStudent] || 'main'}`}
                 height="100%"
                 width="100%"
                 theme={isDark ? 'vs-dark' : 'light'}
-                language="python"
-                onMount={(editor, monaco) => handleEditorMount(editor, monaco, activeCollabStudent)}
+                language={studentLanguages[activeCollabStudent] || 'python'}
+                onMount={(editor, monaco) => handleEditorMount(editor, monaco, activeCollabStudent, studentActiveFiles[activeCollabStudent] || 'main')}
                 options={{ fontSize: 13, minimap: { enabled: false } }}
               />
             </div>
