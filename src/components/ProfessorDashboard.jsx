@@ -57,7 +57,7 @@ export default function ProfessorDashboard({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-[10px] font-bold">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  <span title={student.name} className="truncate max-w-[100px]">{student.rollNumber} - {student.name || 'Student'}</span>
+                  <span title={student.name} className="truncate max-w-[100px]">{student.name}: {student.rollNumber}</span>
                 </div>
                 {handRaises.has(student.rollNumber) && (
                   <button

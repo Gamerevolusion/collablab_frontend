@@ -41,7 +41,7 @@ function AppContent() {
     ? (userProfile?.rollNumber || userProfile?.displayName || user?.email || '')
     : 'PROFESSOR';
   const studentName = role === 'student'
-    ? (userProfile?.displayName || user?.email || 'Student')
+    ? (userProfile?.displayName || user?.displayName || 'Unknown Student')
     : 'Professor';
 
   const {
@@ -84,7 +84,6 @@ function AppContent() {
           const sessQ = query(
             collection(db, 'sessions'),
             where('lobbyCode', '==', code),
-            orderBy('startedAt', 'desc'),
             limit(1)
           );
           const sessSnap = await getDocs(sessQ);
