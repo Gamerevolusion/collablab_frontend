@@ -40,6 +40,9 @@ function AppContent() {
   const studentId = role === 'student'
     ? (userProfile?.rollNumber || userProfile?.displayName || user?.email || '')
     : 'PROFESSOR';
+  const studentName = role === 'student'
+    ? (userProfile?.displayName || user?.email || 'Student')
+    : 'Professor';
 
   const {
     connectedStudents,
@@ -64,7 +67,7 @@ function AppContent() {
     dismissAnnouncement,
     reportPaste,
     dismissPasteAlert,
-  } = useCollabSocket({ isJoined: inSession, role, lobbyCode, studentId });
+  } = useCollabSocket({ isJoined: inSession, role, lobbyCode, studentId, studentName });
 
   const handleJoinSession = async (code) => {
     setLobbyCode(code);

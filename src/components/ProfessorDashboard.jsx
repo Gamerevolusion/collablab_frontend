@@ -49,19 +49,19 @@ export default function ProfessorDashboard({
         <div className="flex-1 overflow-y-auto space-y-2">
           {connectedStudents.map(student => (
             <div
-              key={student}
+              key={student.rollNumber}
               className={`p-2 rounded flex flex-col gap-2 border transition ${
                 isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-white border-neutral-200'
-              } ${handRaises.has(student) ? 'ring-2 ring-amber-500' : ''}`}
+              } ${handRaises.has(student.rollNumber) ? 'ring-2 ring-amber-500' : ''}`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-[10px] font-bold">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  <span title={student} className="truncate max-w-[100px]">{student}</span>
+                  <span title={student.name} className="truncate max-w-[100px]">{student.rollNumber} - {student.name || 'Student'}</span>
                 </div>
-                {handRaises.has(student) && (
+                {handRaises.has(student.rollNumber) && (
                   <button
-                    onClick={() => onAcknowledgeHand(student)}
+                    onClick={() => onAcknowledgeHand(student.rollNumber)}
                     className="text-amber-500 hover:text-amber-400 transition animate-pulse"
                     title="Acknowledge hand raise"
                   >
@@ -70,16 +70,14 @@ export default function ProfessorDashboard({
                 )}
               </div>
               <button
-                onClick={() => setActiveCollabStudent(activeCollabStudent === student ? null : student)}
-                className={`text-[9px] uppercase font-bold py-1 rounded transition ${
-                  activeCollabStudent === student
-                    ? 'bg-amber-600 text-white'
-                    : isDark
-                      ? 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
-                      : 'bg-neutral-200 text-neutral-600 hover:bg-neutral-300'
+                onClick={() => setActiveCollabStudent(activeCollabStudent === student.rollNumber ? null : student.rollNumber)}
+                className={`text-[9px] px-2 py-0.5 rounded border transition ${
+                  activeCollabStudent === student.rollNumber
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : isDark ? 'hover:bg-neutral-800 border-neutral-700 text-neutral-400' : 'hover:bg-neutral-100 border-neutral-300 text-neutral-600'
                 }`}
               >
-                {activeCollabStudent === student ? 'Close Frame' : 'Collaborate'}
+                {activeCollabStudent === student.rollNumber ? 'Close' : 'View Code'}
               </button>
             </div>
           ))}

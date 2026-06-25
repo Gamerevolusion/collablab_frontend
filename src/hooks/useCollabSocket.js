@@ -3,7 +3,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 // Central API Gateway URL
 const WS_URL = 'wss://collablab-backend.onrender.com';
 
-export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
+export function useCollabSocket({ isJoined, role, lobbyCode, studentId, studentName }) {
   const socketRef = useRef(null);
   const [connectedStudents, setConnectedStudents] = useState([]);
   const [studentStreams, setStudentStreams] = useState({}); // { rollNumber: { fileName: code } }
@@ -28,7 +28,7 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
       ws.send(JSON.stringify({
         type: 'JOIN_ROOM',
         lobbyCode,
-        payload: { rollNumber: role === 'professor' ? 'PROFESSOR' : studentId, role }
+        payload: { rollNumber: role === 'professor' ? 'PROFESSOR' : studentId, name: studentName, role }
       }));
     };
 
@@ -41,10 +41,14 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId }) {
           setError(payload);
           break;
         case 'STUDENT_CONNECTED':
-          setConnectedStudents(prev => [...new Set([...prev, payload.rollNumber])]);
+          setConnectedStudents(prev => {
+            const exists = prev.find(s => s.rollNumber === payload.rollNumber);
+            if (exists) return prev;
+            return [...prev, { rollNumber: payload.rollNumber, name: payload.name }];
+          });
           break;
         case 'STUDENT_DISCONNECTED':
-          setConnectedStudents(prev => prev.filter(id => id !== payload.rollNumber));
+          setConnectedStudents(prev => prev.filter(s => s.rollNumber !== payload.rollNumber));
           setHandRaises(prev => {
             const next = new Set(prev);
             next.delete(payload.rollNumber);
