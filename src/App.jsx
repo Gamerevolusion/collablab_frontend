@@ -36,7 +36,7 @@ function AppContent() {
 
   const role = userProfile?.role || 'student';
   const studentId = role === 'student'
-    ? (userProfile?.rollNumber || userProfile?.displayName || user?.email || '')
+    ? (userProfile?.rollNumber || user?.uid?.substring(0, 8) || '')
     : 'PROFESSOR';
   const studentName = role === 'student'
     ? (userProfile?.displayName || user?.displayName || 'Unknown Student')

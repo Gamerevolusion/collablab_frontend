@@ -1,11 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import Editor from '@monaco-editor/react';
 import { Play, Hand, Megaphone, X, Eye, Plus, FileText, Trash2 } from 'lucide-react';
-import * as Y from 'yjs';
-import { WebsocketProvider } from 'y-websocket';
-import { MonacoBinding } from 'y-monaco';
-
-const CRDT_URL = 'wss://collablab-sync-engine.onrender.com';
 
 const LANGUAGES = [
   { value: 'python', label: 'Python 3', monaco: 'python', ext: '.py' },
@@ -162,15 +157,6 @@ export default function StudentWorkspace({
 
   const handleEditorMount = (editor, monaco) => {
     editorRef.current = editor;
-    const ydoc = new Y.Doc();
-    const roomName = `collablab-${lobbyCode}-${studentId}-${activeFile.name}`;
-    const provider = new WebsocketProvider(CRDT_URL, roomName, ydoc);
-    const ytext = ydoc.getText('monaco');
-    new MonacoBinding(ytext, editor.getModel(), new Set([editor]), provider.awareness);
-    provider.awareness.setLocalStateField('user', {
-      name: studentId,
-      color: '#10b981',
-    });
 
     editor.onDidPaste((e) => {
       const pastedText = editor.getModel().getValueInRange(e.range);
