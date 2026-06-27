@@ -7,6 +7,9 @@ const WS_URL = window.location.hostname === 'localhost' || window.location.hostn
 
 export function useCollabSocket({ isJoined, role, lobbyCode, studentId, studentName }) {
   const socketRef = useRef(null);
+  const reconnectTimer = useRef(null);
+  const reconnectAttempts = useRef(0);
+  const executionTimer = useRef(null);
   const [connectedStudents, setConnectedStudents] = useState([]);
   const [studentStreams, setStudentStreams] = useState({}); // { rollNumber: { fileName: code } }
   const [studentOutputs, setStudentOutputs] = useState({});
@@ -23,102 +26,119 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId, studentN
   useEffect(() => {
     if (!isJoined) return;
 
-    const ws = new WebSocket(WS_URL);
-    socketRef.current = ws;
+    function connect() {
+      const ws = new WebSocket(WS_URL);
+      socketRef.current = ws;
 
-    ws.onopen = () => {
-      ws.send(JSON.stringify({
-        type: 'JOIN_ROOM',
-        lobbyCode,
-        payload: { rollNumber: role === 'professor' ? 'PROFESSOR' : studentId, name: studentName, role }
-      }));
-    };
+      ws.onopen = () => {
+        reconnectAttempts.current = 0;
+        ws.send(JSON.stringify({
+          type: 'JOIN_ROOM',
+          lobbyCode,
+          payload: { rollNumber: role === 'professor' ? 'PROFESSOR' : studentId, name: studentName, role }
+        }));
+      };
 
-    ws.onmessage = (event) => {
-      const packet = JSON.parse(event.data);
-      const { type, payload } = packet;
+      ws.onmessage = (event) => {
+        const packet = JSON.parse(event.data);
+        const { type, payload } = packet;
 
-      switch (type) {
-        case 'ERROR':
-          setError(payload);
-          break;
-        case 'STUDENT_CONNECTED':
-          setConnectedStudents(prev => {
-            const exists = prev.find(s => s.rollNumber === payload.rollNumber);
-            if (exists) return prev;
-            return [...prev, { rollNumber: payload.rollNumber, name: payload.name }];
-          });
-          break;
-        case 'STUDENT_DISCONNECTED':
-          setConnectedStudents(prev => prev.filter(s => s.rollNumber !== payload.rollNumber));
-          setHandRaises(prev => {
-            const next = new Set(prev);
-            next.delete(payload.rollNumber);
-            return next;
-          });
-          break;
-        case 'STUDENT_STREAM': {
-          const rawDelta = payload.delta;
-          const deltaStr = typeof rawDelta === 'object' && rawDelta !== null ? (rawDelta.code || '') : (rawDelta || '');
-          const fileName = payload.fileName || 'main';
-          const roll = payload.rollNumber;
+        switch (type) {
+          case 'ERROR':
+            setError(payload);
+            break;
+          case 'STUDENT_CONNECTED':
+            setConnectedStudents(prev => {
+              const exists = prev.find(s => s.rollNumber === payload.rollNumber);
+              if (exists) return prev;
+              return [...prev, { rollNumber: payload.rollNumber, name: payload.name }];
+            });
+            break;
+          case 'STUDENT_DISCONNECTED':
+            setConnectedStudents(prev => prev.filter(s => s.rollNumber !== payload.rollNumber));
+            setHandRaises(prev => {
+              const next = new Set(prev);
+              next.delete(payload.rollNumber);
+              return next;
+            });
+            break;
+          case 'STUDENT_STREAM': {
+            const rawDelta = payload.delta;
+            const deltaStr = typeof rawDelta === 'object' && rawDelta !== null ? (rawDelta.code || '') : (rawDelta || '');
+            const fileName = payload.fileName || 'main';
+            const roll = payload.rollNumber;
 
-          // Store per-file content
-          setStudentStreams(prev => ({
-            ...prev,
-            [roll]: { ...(prev[roll] || {}), [fileName]: deltaStr }
-          }));
-
-          // Track active file
-          setStudentActiveFiles(prev => ({ ...prev, [roll]: fileName }));
-
-          // Track file list
-          setStudentFileList(prev => {
-            const existing = prev[roll] || [];
-            if (!existing.includes(fileName)) {
-              return { ...prev, [roll]: [...existing, fileName] };
-            }
-            return prev;
-          });
-
-          if (payload.language) setStudentLanguages(prev => ({ ...prev, [roll]: payload.language }));
-          break;
-        }
-        case 'EXECUTION_RESULT':
-          if (role === 'student') {
-            setTerminalOutput(payload.output);
-            setIsRunning(false);
-          } else {
-            setStudentOutputs(prev => ({ ...prev, [payload.rollNumber]: payload.output }));
+            setStudentStreams(prev => ({
+              ...prev,
+              [roll]: { ...(prev[roll] || {}), [fileName]: deltaStr }
+            }));
+            setStudentActiveFiles(prev => ({ ...prev, [roll]: fileName }));
+            setStudentFileList(prev => {
+              const existing = prev[roll] || [];
+              if (!existing.includes(fileName)) {
+                return { ...prev, [roll]: [...existing, fileName] };
+              }
+              return prev;
+            });
+            if (payload.language) setStudentLanguages(prev => ({ ...prev, [roll]: payload.language }));
+            break;
           }
-          break;
-        case 'HAND_RAISE':
-          setHandRaises(prev => new Set([...prev, payload.rollNumber]));
-          break;
-        case 'HAND_LOWER':
-          setHandRaises(prev => {
-            const next = new Set(prev);
-            next.delete(payload.rollNumber);
-            return next;
-          });
-          break;
-        case 'ANNOUNCEMENT':
-          setAnnouncements(prev => [...prev, { message: payload.message, timestamp: payload.timestamp, id: Date.now() }]);
-          break;
-        case 'PASTE_DETECTED':
-          setPasteAlerts(prev => ({ ...prev, [payload.rollNumber]: { charCount: payload.charCount, timestamp: payload.timestamp } }));
-          break;
-        default:
-          break;
-      }
-    };
+          case 'EXECUTION_RESULT':
+            if (role === 'student') {
+              clearTimeout(executionTimer.current);
+              setTerminalOutput(payload.output);
+              setIsRunning(false);
+            } else {
+              setStudentOutputs(prev => ({ ...prev, [payload.rollNumber]: payload.output }));
+            }
+            break;
+          case 'HAND_RAISE':
+            setHandRaises(prev => new Set([...prev, payload.rollNumber]));
+            break;
+          case 'HAND_LOWER':
+            setHandRaises(prev => {
+              const next = new Set(prev);
+              next.delete(payload.rollNumber);
+              return next;
+            });
+            break;
+          case 'ANNOUNCEMENT':
+            setAnnouncements(prev => [...prev, { message: payload.message, timestamp: payload.timestamp, id: Date.now() }]);
+            break;
+          case 'PASTE_DETECTED':
+            setPasteAlerts(prev => ({ ...prev, [payload.rollNumber]: { charCount: payload.charCount, timestamp: payload.timestamp } }));
+            break;
+          default:
+            break;
+        }
+      };
 
-    ws.onclose = () => {
-      socketRef.current = null;
-    };
+      ws.onclose = () => {
+        socketRef.current = null;
+        // Attempt reconnection with exponential backoff (max 3 retries)
+        if (reconnectAttempts.current < 3) {
+          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 8000);
+          reconnectAttempts.current += 1;
+          console.log(`WebSocket disconnected. Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current}/3)...`);
+          reconnectTimer.current = setTimeout(connect, delay);
+        } else {
+          console.warn('WebSocket reconnection failed after 3 attempts.');
+          setError('Connection lost. Please rejoin the session.');
+        }
+      };
+
+      ws.onerror = () => {
+        // onclose will fire after this, which handles reconnection
+      };
+    }
+
+    connect();
 
     return () => {
-      ws.close();
+      reconnectAttempts.current = 999; // prevent reconnection on intentional cleanup
+      clearTimeout(reconnectTimer.current);
+      clearTimeout(executionTimer.current);
+      if (socketRef.current) socketRef.current.close();
       socketRef.current = null;
     };
   }, [isJoined, role, lobbyCode, studentId]);
@@ -138,6 +158,12 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId, studentN
     setIsRunning(true);
     setTerminalOutput('');
     sendMessage('EXECUTE_CODE', { language, code, stdin });
+    // Auto-reset isRunning after 30s if no response arrives (Bug 4 fix)
+    clearTimeout(executionTimer.current);
+    executionTimer.current = setTimeout(() => {
+      setIsRunning(false);
+      setTerminalOutput(prev => prev || 'Execution timed out. Please try again.');
+    }, 30000);
   }, [sendMessage]);
 
   const raiseHand = useCallback(() => {

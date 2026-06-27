@@ -148,7 +148,7 @@ export default function StudentWorkspace({
           htmlContent = styleTag + '\n' + htmlContent;
         }
       }
-      htmlContent = INJECTED_SCRIPT + '\\n' + htmlContent;
+      htmlContent = INJECTED_SCRIPT + '\n' + htmlContent;
       if (scriptTag) {
         if (htmlContent.includes('</body>')) {
           htmlContent = htmlContent.replace('</body>', scriptTag + '\n</body>');
@@ -163,8 +163,7 @@ export default function StudentWorkspace({
   const handleEditorMount = (editor, monaco) => {
     editorRef.current = editor;
     const ydoc = new Y.Doc();
-    const safeId = studentId.replace(/[^a-zA-Z0-9_-]/g, '_');
-    const roomName = `collablab-${lobbyCode}-${safeId}-${activeFile.name}`;
+    const roomName = `collablab-${lobbyCode}-${studentId}-${activeFile.name}`;
     const provider = new WebsocketProvider(CRDT_URL, roomName, ydoc);
     const ytext = ydoc.getText('monaco');
     new MonacoBinding(ytext, editor.getModel(), new Set([editor]), provider.awareness);
@@ -197,7 +196,7 @@ export default function StudentWorkspace({
           htmlContent = styleTag + '\n' + htmlContent;
         }
       }
-      htmlContent = INJECTED_SCRIPT + '\\n' + htmlContent;
+      htmlContent = INJECTED_SCRIPT + '\n' + htmlContent;
       if (scriptTag) {
         if (htmlContent.includes('</body>')) {
           htmlContent = htmlContent.replace('</body>', scriptTag + '\n</body>');
@@ -252,7 +251,7 @@ export default function StudentWorkspace({
     if (targetFile) {
       const lang = getMonacoLang(targetFile.name);
       const execLang = lang === 'css' ? 'html' : (LANGUAGES.find(l => l.monaco === lang)?.value || selectedLanguage);
-      onSyncCode(execLang, targetFile.content || '', targetFile.name);
+      onSyncCode(targetFile.content || '', execLang, targetFile.name);
     }
   };
 

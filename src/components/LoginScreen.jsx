@@ -146,7 +146,7 @@ export default function LoginScreen({ isDark, setIsDark }) {
                     className={`w-full border rounded px-2.5 py-2 text-xs focus:outline-none transition ${inputClass}`}
                   >
                     <option value="">Select your semester...</option>
-                    {[1,2,3,4,5,6,7].map(s => <option key={s} value={s}>Semester {s}</option>)}
+                    {[1,2,3,4,5,6].map(s => <option key={s} value={s}>Semester {s}</option>)}
                   </select>
                 </div>
               )}

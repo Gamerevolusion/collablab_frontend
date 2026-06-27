@@ -14,10 +14,8 @@ import {
   updateDoc,
   collection,
   serverTimestamp,
-  Timestamp,
   query,
   where,
-  orderBy,
   limit,
   getDocs,
 } from 'firebase/firestore';
@@ -32,7 +30,7 @@ function AppContent() {
   const [sessionDocId, setSessionDocId] = useState(null);
   const [participantDocId, setParticipantDocId] = useState(null);
 
-  const [localCode, setLocalCode] = useState('print("System Online.")\\n');
+  const [localCode, setLocalCode] = useState('print("System Online.")\n');
   const [selectedLanguage, setSelectedLanguage] = useState('python');
   const [isHandRaised, setIsHandRaised] = useState(false);
 
