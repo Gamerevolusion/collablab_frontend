@@ -288,9 +288,16 @@ export default function StudentWorkspace({
               }
               
               const newContent = LANG_TEMPLATES[newLang] || '';
-              setFiles([{ name: defaultName, content: newContent }]);
-              setActiveFileIdx(0);
-              setLocalCode(newContent);
+              
+              const existingIdx = files.findIndex(f => f.name === defaultName);
+              if (existingIdx !== -1) {
+                setActiveFileIdx(existingIdx);
+                setLocalCode(files[existingIdx].content);
+              } else {
+                setFiles(prev => [...prev, { name: defaultName, content: newContent }]);
+                setActiveFileIdx(files.length);
+                setLocalCode(newContent);
+              }
             }}
             className={`border rounded text-[10px] px-2 py-1 focus:outline-none ${isDark ? 'bg-neutral-950 border-neutral-800' : 'bg-white border-neutral-200 text-black'}`}
           >
