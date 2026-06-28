@@ -18,6 +18,7 @@ import {
   where,
   limit,
   getDocs,
+  getDoc,
 } from 'firebase/firestore';
 import { db } from './firebase';
 
@@ -29,6 +30,7 @@ function AppContent() {
   const [lobbyCode, setLobbyCode] = useState('');
   const [sessionDocId, setSessionDocId] = useState(null);
   const [participantDocId, setParticipantDocId] = useState(null);
+  const [joinError, setJoinError] = useState('');
 
   const [localCode, setLocalCode] = useState('print("System Online.")\n');
   const [selectedLanguage, setSelectedLanguage] = useState('python');
@@ -68,52 +70,88 @@ function AppContent() {
   } = useCollabSocket({ isJoined: inSession, role, lobbyCode, studentId, studentName });
 
   const handleJoinSession = async (code) => {
-    setLobbyCode(code);
-    setInSession(true);
-
+    setJoinError('');
     if (role === 'student') {
       try {
-        // Find the active session by lobbyCode to get sessionId, semester, subject
-        let activeSessionId = '';
-        let sessionSemester = null;
-        let sessionSubject = '';
-        let sessionProfessorName = '';
-        try {
-          const sessQ = query(
-            collection(db, 'sessions'),
-            where('lobbyCode', '==', code),
-            limit(1)
-          );
-          const sessSnap = await getDocs(sessQ);
-          if (!sessSnap.empty) {
-            const sessData = sessSnap.docs[0];
-            activeSessionId = sessData.id;
-            sessionSemester = sessData.data().semester || null;
-            sessionSubject = sessData.data().subject || '';
-            sessionProfessorName = sessData.data().professorName || '';
-          }
-        } catch (err) {
-          console.warn('Could not look up active session:', err);
+        // First, validate the lobby code exists in active sessions
+        const sessQ = query(
+          collection(db, 'sessions'),
+          where('lobbyCode', '==', code),
+          where('endedAt', '==', null),
+          limit(1)
+        );
+        const sessSnap = await getDocs(sessQ);
+        
+        if (sessSnap.empty) {
+          setJoinError('Invalid or expired lobby code. Please check with your professor.');
+          return;
         }
 
-        const partDoc = await addDoc(collection(db, 'sessionParticipants'), {
-          lobbyCode: code,
-          sessionId: activeSessionId,
-          studentUid: user.uid,
-          studentName: userProfile?.displayName || '',
-          rollNumber: userProfile?.rollNumber || '',
-          semester: sessionSemester,
-          subject: sessionSubject,
-          joinedAt: serverTimestamp(),
-          leftAt: null,
-          status: 'in_progress',
-          languages: [],
-          professorName: sessionProfessorName,
-        });
-        setParticipantDocId(partDoc.id);
+        const sessData = sessSnap.docs[0];
+        const activeSessionId = sessData.id;
+        const sessionSemester = sessData.data().semester || null;
+        const sessionSubject = sessData.data().subject || '';
+        const sessionProfessorName = sessData.data().professorName || '';
+
+        // Check if student already has an active participation in this session
+        let existingParticipantDoc = null;
+        try {
+          const partQ = query(
+            collection(db, 'sessionParticipants'),
+            where('sessionId', '==', activeSessionId),
+            where('studentUid', '==', user.uid),
+            where('status', 'in', ['in_progress', 'pending']),
+            limit(1)
+          );
+          const partSnap = await getDocs(partQ);
+          if (!partSnap.empty) {
+            existingParticipantDoc = partSnap.docs[0];
+          }
+        } catch (err) {
+          console.warn('Could not check existing participation:', err);
+        }
+
+        setLobbyCode(code);
+        setInSession(true);
+
+        try {
+          if (existingParticipantDoc) {
+            // Reuse existing participation record - just update status to in_progress
+            await updateDoc(doc(db, 'sessionParticipants', existingParticipantDoc.id), {
+              status: 'in_progress',
+              leftAt: null,
+            });
+            setParticipantDocId(existingParticipantDoc.id);
+          } else {
+            // Create new participation record
+            const partDoc = await addDoc(collection(db, 'sessionParticipants'), {
+              lobbyCode: code,
+              sessionId: activeSessionId,
+              studentUid: user.uid,
+              studentName: userProfile?.displayName || '',
+              rollNumber: userProfile?.rollNumber || '',
+              semester: sessionSemester,
+              subject: sessionSubject,
+              joinedAt: serverTimestamp(),
+              leftAt: null,
+              status: 'in_progress',
+              languages: [],
+              professorName: sessionProfessorName,
+              codeSnapshots: {}, // Store code per file per language
+            });
+            setParticipantDocId(partDoc.id);
+          }
+        } catch (err) {
+          console.error('Failed to record session participation:', err);
+        }
       } catch (err) {
-        console.error('Failed to record session participation:', err);
+        console.error('Failed to validate lobby code:', err);
+        setJoinError('Something went wrong. Please try again.');
       }
+    } else {
+      // Professor/admin just join directly (they create sessions)
+      setLobbyCode(code);
+      setInSession(true);
     }
   };
 
@@ -140,6 +178,35 @@ function AppContent() {
   };
 
   const leaveSession = async () => {
+    // Save code snapshots before leaving
+    if (participantDocId && role === 'student') {
+      try {
+        const partRef = doc(db, 'sessionParticipants', participantDocId);
+        const partSnap = await getDoc(partRef);
+        if (partSnap.exists()) {
+          const partData = partSnap.data();
+          const currentSnapshots = partData.codeSnapshots || {};
+          // Save current code for the active file/language
+          const activeFileName = selectedLanguage === 'html' ? 'index.html' : 
+            selectedLanguage === 'python' ? 'main.py' :
+            selectedLanguage === 'java' ? 'Main.java' : `main.${selectedLanguage}`;
+          const langKey = `${selectedLanguage}:${activeFileName}`;
+          const updatedSnapshots = {
+            ...currentSnapshots,
+            [langKey]: {
+              code: localCode,
+              language: selectedLanguage,
+              fileName: activeFileName,
+              updatedAt: serverTimestamp(),
+            }
+          };
+          await updateDoc(partRef, { codeSnapshots: updatedSnapshots });
+        }
+      } catch (err) {
+        console.error('Failed to save code snapshots:', err);
+      }
+    }
+
     if (participantDocId) {
       try {
         await updateDoc(doc(db, 'sessionParticipants', participantDocId), {
@@ -174,6 +241,43 @@ function AppContent() {
     }
   }, [socketError]);
 
+  // Periodically save code snapshots to Firestore
+  React.useEffect(() => {
+    if (!inSession || role !== 'student' || !participantDocId) return;
+    const interval = setInterval(async () => {
+      try {
+        const partRef = doc(db, 'sessionParticipants', participantDocId);
+        const partSnap = await getDoc(partRef);
+        if (!partSnap.exists()) return;
+        
+        const partData = partSnap.data();
+        const currentSnapshots = partData.codeSnapshots || {};
+        
+        // Get the current file name based on language
+        const activeFileName = selectedLanguage === 'html' ? 'index.html' : 
+          selectedLanguage === 'python' ? 'main.py' :
+          selectedLanguage === 'java' ? 'Main.java' : `main.${selectedLanguage}`;
+        const langKey = `${selectedLanguage}:${activeFileName}`;
+        
+        const updatedSnapshots = {
+          ...currentSnapshots,
+          [langKey]: {
+            code: localCode,
+            language: selectedLanguage,
+            fileName: activeFileName,
+            updatedAt: serverTimestamp(),
+          }
+        };
+        
+        await updateDoc(partRef, { codeSnapshots: updatedSnapshots });
+      } catch (err) {
+        console.error('Failed to save code snapshot:', err);
+      }
+    }, 10000); // Save every 10 seconds
+    
+    return () => clearInterval(interval);
+  }, [inSession, role, participantDocId, localCode, selectedLanguage]);
+
   const handleRaiseHand = () => { raiseHand(); setIsHandRaised(true); };
   const handleLowerHand = () => { lowerHand(); setIsHandRaised(false); };
 
@@ -196,7 +300,7 @@ function AppContent() {
     if (role === 'professor') {
       return <ProfessorLobby isDark={isDark} onCreateSession={handleCreateSession} onSignOut={signOut} />;
     }
-    return <StudentDashboard isDark={isDark} onJoinSession={handleJoinSession} onSignOut={signOut} />;
+    return <StudentDashboard isDark={isDark} onJoinSession={handleJoinSession} onSignOut={signOut} joinError={joinError} setJoinError={setJoinError} />;
   }
 
   const themeClass = isDark ? 'bg-neutral-950 text-neutral-200' : 'bg-neutral-50 text-neutral-900';

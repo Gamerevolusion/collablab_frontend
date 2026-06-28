@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { LogOut, Clock, Code, User, ArrowRight, Calendar, Hash } from 'lucide-react';
+import React, { useState, useEffect, Fragment } from 'react';
+import { LogOut, Clock, Code, User, ArrowRight, Calendar, Hash, ChevronDown, FileCode, X } from 'lucide-react';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 
-export default function StudentDashboard({ isDark, onJoinSession, onSignOut }) {
+export default function StudentDashboard({ isDark, onJoinSession, onSignOut, joinError, setJoinError }) {
   const { user, userProfile } = useAuth();
   const [lobbyCode, setLobbyCode] = useState('');
   const [sessions, setSessions] = useState([]);
   const [loadingSessions, setLoadingSessions] = useState(true);
+  const [expandedSession, setExpandedSession] = useState(null);
 
   const borderClass = isDark ? 'border-neutral-800' : 'border-neutral-200';
   const cardClass = isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-white border-neutral-200 shadow-sm';
@@ -36,8 +37,13 @@ export default function StudentDashboard({ isDark, onJoinSession, onSignOut }) {
 
   const handleJoin = () => {
     if (lobbyCode.trim()) {
+      setJoinError('');
       onJoinSession(lobbyCode.trim());
     }
+  };
+
+  const toggleSession = (sessionId) => {
+    setExpandedSession(expandedSession === sessionId ? null : sessionId);
   };
 
   const formatDuration = (joinedAt, leftAt) => {
@@ -108,6 +114,11 @@ export default function StudentDashboard({ isDark, onJoinSession, onSignOut }) {
 
             <div className={`w-80 border rounded-xl p-5 ${cardClass}`}>
               <div className="text-[10px] font-bold uppercase text-neutral-500 mb-3">Join a Session</div>
+              {joinError && (
+                <div className="bg-red-500/10 border border-red-500/50 text-red-500 text-[10px] px-3 py-2 rounded mb-3 font-bold">
+                  ⚠ {joinError}
+                </div>
+              )}
               <input
                 type="text"
                 value={lobbyCode}
@@ -148,36 +159,87 @@ export default function StudentDashboard({ isDark, onJoinSession, onSignOut }) {
                       <th className="text-left py-2 px-3 text-[9px] uppercase text-neutral-500 font-bold">Duration</th>
                       <th className="text-left py-2 px-3 text-[9px] uppercase text-neutral-500 font-bold">Languages</th>
                       <th className="text-left py-2 px-3 text-[9px] uppercase text-neutral-500 font-bold">Status</th>
+                      <th className="text-center py-2 px-3 text-[9px] uppercase text-neutral-500 font-bold w-10">Code</th>
                     </tr>
                   </thead>
                   <tbody>
                     {sessions.map(s => (
-                      <tr key={s.id} className={`border-b ${borderClass} hover:bg-neutral-800/30 transition`}>
-                        <td className="py-2.5 px-3">
-                          <div>{formatDate(s.joinedAt)}</div>
-                          <div className="text-[9px] text-neutral-500">{formatTime(s.joinedAt)}</div>
-                        </td>
-                        <td className="py-2.5 px-3 font-bold">{s.lobbyCode || '—'}</td>
-                        <td className="py-2.5 px-3">{s.professorName || '—'}</td>
-                        <td className="py-2.5 px-3">{formatDuration(s.joinedAt, s.leftAt)}</td>
-                        <td className="py-2.5 px-3">
-                          <div className="flex gap-1 flex-wrap">
-                            {(s.languages || []).map(l => (
-                              <span key={l} className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${isDark ? 'bg-neutral-800 text-neutral-400' : 'bg-neutral-200 text-neutral-600'}`}>{l}</span>
-                            ))}
-                            {(!s.languages || s.languages.length === 0) && <span className="text-neutral-600">—</span>}
-                          </div>
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase ${
-                            s.status === 'completed'
-                              ? (isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-700')
-                              : (isDark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700')
-                          }`}>
-                            {s.status || 'completed'}
-                          </span>
-                        </td>
-                      </tr>
+                      <Fragment key={s.id}>
+                        <tr 
+                          onClick={() => toggleSession(s.id)}
+                          className={`border-b ${borderClass} hover:bg-neutral-800/30 transition cursor-pointer`}
+                        >
+                          <td className="py-2.5 px-3">
+                            <div>{formatDate(s.joinedAt)}</div>
+                            <div className="text-[9px] text-neutral-500">{formatTime(s.joinedAt)}</div>
+                          </td>
+                          <td className="py-2.5 px-3 font-bold">{s.lobbyCode || '—'}</td>
+                          <td className="py-2.5 px-3">{s.professorName || '—'}</td>
+                          <td className="py-2.5 px-3">{formatDuration(s.joinedAt, s.leftAt)}</td>
+                          <td className="py-2.5 px-3">
+                            <div className="flex gap-1 flex-wrap">
+                              {(s.languages || []).map(l => (
+                                <span key={l} className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${isDark ? 'bg-neutral-800 text-neutral-400' : 'bg-neutral-200 text-neutral-600'}`}>{l}</span>
+                              ))}
+                              {(!s.languages || s.languages.length === 0) && <span className="text-neutral-600">—</span>}
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase ${
+                              s.status === 'completed'
+                                ? (isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-700')
+                                : (isDark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700')
+                            }`}>
+                              {s.status || 'completed'}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            {s.codeSnapshots && Object.keys(s.codeSnapshots).length > 0 && (
+                              <span className={expandedSession === s.id ? 'text-emerald-400' : 'text-neutral-500'}>
+                                <ChevronDown size={12} />
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                        {expandedSession === s.id && (
+                          <tr className={`bg-neutral-950/50 ${borderClass}`}>
+                            <td colSpan={7} className="py-4 px-3">
+                              <div className={`border rounded-lg p-4 ${isDark ? 'bg-black/50' : 'bg-neutral-50'}`}>
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="text-xs font-bold uppercase text-neutral-500">Code Snapshots</div>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); toggleSession(s.id); }}
+                                    className="p-1 hover:bg-neutral-800/30 rounded"
+                                  >
+                                    <X size={14} />
+                                  </button>
+                                </div>
+                                {s.codeSnapshots ? (
+                                  Object.entries(s.codeSnapshots).map(([key, snap]) => (
+                                    <div key={key} className={`mb-3 p-3 rounded ${isDark ? 'bg-neutral-900' : 'bg-neutral-100'}`}>
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <FileCode size={12} className="text-emerald-400" />
+                                        <span className="text-xs font-bold uppercase">{snap.fileName || key}</span>
+                                        <span className={`px-1.5 py-0.5 rounded text-[7px] font-bold ${isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-700'}`}>{snap.language || 'unknown'}</span>
+                                        {snap.updatedAt && (
+                                          <span className="text-[9px] text-neutral-500 ml-auto">
+                                            Updated: {snap.updatedAt.toDate ? snap.updatedAt.toDate().toLocaleTimeString() : '—'}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <pre className={`text-[10px] font-mono overflow-x-auto p-2 rounded ${isDark ? 'bg-neutral-950 text-neutral-200' : 'bg-neutral-900 text-neutral-100'}`}>
+                                        {snap.code || '// No code'}
+                                      </pre>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="text-center py-4 text-neutral-500 text-[10px]">No code snapshots available for this session.</div>
+                                )}
+                             </div>
+                           </td>
+                         </tr>
+                        )}
+                     </Fragment>
                     ))}
                   </tbody>
                 </table>

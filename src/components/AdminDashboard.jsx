@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LogOut, Plus, Trash2, BookOpen, GraduationCap, Users, Search, Edit3, Eye, BarChart3, X, Save, ChevronRight } from 'lucide-react';
+import { LogOut, Plus, Trash2, BookOpen, GraduationCap, Users, Search, Edit3, Eye, BarChart3, X, Save, ChevronRight, AlertCircle, CheckCircle } from 'lucide-react';
 import { collection, query, where, orderBy, getDocs, addDoc, deleteDoc, updateDoc, doc, serverTimestamp, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -298,24 +298,59 @@ function StudentsTab({ isDark, borderClass, cardClass, inputClass }) {
   };
 
   const handleDeleteStudent = async (student) => {
-    if (!window.confirm(`Delete ${student.displayName || student.email}? This will remove their profile and attempt to delete their authentication.`)) return;
+    if (!window.confirm(`Delete ${student.displayName || student.email}? This will remove their Firestore profile. The authentication account can only be deleted by the backend (which may not be configured).`)) return;
+    
+    let authDeleted = false;
+    let errorMessage = '';
+    
     try {
-      // Try backend deletion (Firebase Admin)
       try {
-        await fetch(`${BACKEND_URL}/api/delete-user`, {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
+        const res = await fetch(`${BACKEND_URL}/api/delete-user`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ uid: student.id }),
+          signal: controller.signal,
         });
+        clearTimeout(timeoutId);
+        
+        if (res.ok) {
+          authDeleted = true;
+          const data = await res.json();
+          console.log('Auth account deleted:', data);
+        } else {
+          const data = await res.json().catch(() => ({}));
+          if (res.status === 500 && data.error?.includes('Firebase Admin SDK')) {
+            errorMessage = 'Backend not configured (FIREBASE_SERVICE_ACCOUNT missing on server). Only their Firestore profile was deleted - the auth account still exists.';
+          } else {
+            errorMessage = `Backend error: ${data.error || res.statusText}. Only their Firestore profile was deleted - the auth account still exists.`;
+          }
+          console.warn('Backend delete failed:', errorMessage);
+        }
       } catch (err) {
+        if (err.name === 'AbortError') {
+          errorMessage = 'Backend request timed out. Only their Firestore profile was deleted - the auth account still exists.';
+        } else {
+          errorMessage = `Backend unreachable (${err.message}). Only their Firestore profile was deleted - the auth account still exists.`;
+        }
         console.warn('Backend delete failed, removing Firestore profile only:', err);
       }
-      // Delete Firestore profile
+      
+      // Always delete Firestore profile
       await deleteDoc(doc(db, 'users', student.id));
       setStudents(prev => prev.filter(s => s.id !== student.id));
       if (selectedStudent?.id === student.id) setSelectedStudent(null);
+      
+      if (authDeleted) {
+        console.log(`Successfully deleted ${student.email} (auth + Firestore profile)`);
+      } else if (errorMessage) {
+        alert(errorMessage);
+      }
     } catch (err) {
       console.error('Failed to delete student:', err);
+      alert('Failed to delete student: ' + err.message);
     }
   };
 

@@ -199,7 +199,7 @@ export default function ProfessorDashboard({
                 theme={isDark ? 'vs-dark' : 'light'}
                 language={getMonacoLang(getCollabFileName())}
                 value={getCollabCode()}
-                options={{ fontSize: 13, minimap: { enabled: false }, readOnly: true, domReadOnly: true }}
+                options={{ fontSize: 13, minimap: { enabled: false }, readOnly: false }}
               />
             </div>
 

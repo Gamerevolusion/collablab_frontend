@@ -5,6 +5,38 @@ html, body, #root {
   padding: 0;
   width: 100vw;
   height: 100vh;
-  background-color: #020617; /* slate-950 */
+  background-color: #020617;
   overflow: hidden;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 3px;
+  border: 1px solid #0f172a;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #10b981;
+}
+
+*::-webkit-scrollbar-thumb:active {
+  background: #059669;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #1e293b transparent;
 }
