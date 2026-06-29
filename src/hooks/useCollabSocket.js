@@ -1,10 +1,9 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { auth } from '../firebase';
 
-// Central API Gateway URL
-const WS_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+const WS_URL = import.meta.env.VITE_BACKEND_WS_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
   ? 'ws://localhost:4000' 
-  : 'wss://collablab-backend.onrender.com';
+  : 'wss://collablab-backend.onrender.com');
 
 export function useCollabSocket({ isJoined, role, lobbyCode, studentId, studentName }) {
   const socketRef = useRef(null);

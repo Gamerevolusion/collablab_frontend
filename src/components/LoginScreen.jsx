@@ -66,9 +66,9 @@ export default function LoginScreen({ isDark, setIsDark }) {
       if (role === 'professor' && semesters.length === 0) { setError('Please select at least one semester you teach.'); return; }
       if (role === 'admin') {
         try {
-          const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+          const API_URL = import.meta.env.VITE_BACKEND_HTTP_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
             ? 'http://localhost:4000'
-            : 'https://collablab-backend.onrender.com';
+            : 'https://collablab-backend.onrender.com');
           const resp = await fetch(`${API_URL}/api/validate-admin-key`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
