@@ -25,6 +25,11 @@ export default function ProfessorLobby({ isDark, onCreateSession, onSignOut }) {
     ? 'bg-black border-neutral-800 placeholder:text-neutral-700 text-neutral-200'
     : 'bg-white border-neutral-300 text-black placeholder:text-neutral-400';
 
+  // Get the semesters this professor is assigned to teach (from their profile)
+  const assignedSemesters = Array.isArray(userProfile?.semesters) ? userProfile.semesters : [];
+  // If no semesters assigned, allow all (for backwards compatibility with old accounts)
+  const availableSemesters = assignedSemesters.length > 0 ? assignedSemesters : SEMESTERS;
+
   useEffect(() => {
     if (!user) return;
     const fetchSessions = async () => {
@@ -141,8 +146,22 @@ export default function ProfessorLobby({ isDark, onCreateSession, onSignOut }) {
                   <div className="text-[9px] text-neutral-500 uppercase font-bold flex items-center gap-1"><Users size={8} /> Total Students</div>
                   <div className="text-xs font-bold mt-1">{sessions.reduce((sum, s) => sum + (s.studentCount || 0), 0)}</div>
                 </div>
-              </div>
+           </div>
+              <div className={`mt-3 rounded-lg p-3 border ${isDark ? 'bg-neutral-950 border-neutral-800' : 'bg-neutral-50 border-neutral-200'}`}>
+                <div className="text-[9px] text-neutral-500 uppercase font-bold mb-2">Teaching Semesters</div>
+                {assignedSemesters.length > 0 ? (
+                  <div className="flex gap-1 flex-wrap">
+                    {assignedSemesters.sort().map(s => (
+                      <span key={s} className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${isDark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700'}`}>
+                        Sem {s}
+                   </span>
+                    ))}
+                </div>
+                ) : (
+                  <span className="text-[10px] text-neutral-500">All semesters. Admin can restrict</span>
+                )}
             </div>
+          </div>
 
             <div className={`w-96 border rounded-xl p-5 ${cardClass}`}>
               <div className="text-[10px] font-bold uppercase text-neutral-500 mb-3">Start a Session</div>
@@ -150,7 +169,7 @@ export default function ProfessorLobby({ isDark, onCreateSession, onSignOut }) {
               <div className="mb-3">
                 <div className="text-[9px] font-bold uppercase text-neutral-500 mb-1.5">Semester</div>
                 <div className="flex gap-1.5">
-                  {SEMESTERS.map(sem => (
+                  {availableSemesters.map(sem => (
                     <button
                       key={sem}
                       onClick={() => setSelectedSem(sem)}
@@ -161,10 +180,10 @@ export default function ProfessorLobby({ isDark, onCreateSession, onSignOut }) {
                       }`}
                     >
                       {sem}
-                    </button>
+                   </button>
                   ))}
-                </div>
-              </div>
+               </div>
+             </div>
 
               {selectedSem && (
                 <div className="mb-3">

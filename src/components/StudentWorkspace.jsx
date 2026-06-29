@@ -70,6 +70,8 @@ export default function StudentWorkspace({
   // Handle messages from the iframe for console logs and errors
   useEffect(() => {
     const handleMessage = (event) => {
+      // MED-5: Only accept messages from our own iframe (sandboxed iframes have origin 'null')
+      if (event.origin !== 'null' && event.origin !== window.location.origin) return;
       if (event.data?.type === 'PREVIEW_LOG') {
         setTerminalOutput(prev => prev === 'Terminal standing by...' ? event.data.payload : prev + '\n' + event.data.payload);
       } else if (event.data?.type === 'PREVIEW_ERROR') {

@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 const ABOUT_CONTENT = {
   overview: `CollabLab is a full-stack real-time collaborative coding platform designed for educational environments. Built with React/Vite and Node.js/Express WebSocket backend, it enables professors to create live coding sessions where students join via a unique code to write, edit, and execute code collaboratively.`,
   techStack: [
-    { icon: Terminal, label: 'Real-time Sync', desc: 'Yjs CRDT + Monaco Editor for conflict-free collaborative editing' },
+    { icon: Terminal, label: 'Real-time Sync', desc: 'WebSocket streaming + Monaco Editor for live collaborative coding' },
     { icon: Server, label: 'WebSocket Gateway', desc: 'Custom Node.js server managing lobbies, streams, and execution routing' },
     { icon: Container, label: 'Secure Execution', desc: 'Container-isolated runtimes (Node, Python, C++, Java, R, SQL) with 100MB RAM, no network' },
     { icon: Database, label: 'Firebase Backend', desc: 'Auth, Firestore for sessions/participation, Admin SDK for user management' },
@@ -34,11 +34,16 @@ export default function LoginScreen({ isDark, setIsDark }) {
   const [rollNumber, setRollNumber] = useState('');
   const [role, setRole] = useState('student');
   const [semester, setSemester] = useState('');
+  const [semesters, setSemesters] = useState([]);
   const [adminKey, setAdminKey] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
+
+  const toggleSemester = (s) => {
+    setSemesters(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
+  };
 
   const borderClass = isDark ? 'border-neutral-800' : 'border-neutral-200';
   const cardClass = isDark ? 'bg-neutral-900' : 'bg-white shadow-lg';
@@ -58,7 +63,27 @@ export default function LoginScreen({ isDark, setIsDark }) {
       if (!fullName.trim()) { setError('Full name is required.'); return; }
       if (role === 'student' && !rollNumber.trim()) { setError('Roll number is required for students.'); return; }
       if (role === 'student' && !semester) { setError('Please select your current semester.'); return; }
-      if (role === 'admin' && adminKey !== 'COLLABLAB_MASTER_2025') { setError('Invalid admin master key.'); return; }
+      if (role === 'professor' && semesters.length === 0) { setError('Please select at least one semester you teach.'); return; }
+      if (role === 'admin') {
+        try {
+          const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? 'http://localhost:4000'
+            : 'https://collablab-backend.onrender.com';
+          const resp = await fetch(`${API_URL}/api/validate-admin-key`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ adminKey }),
+          });
+          const data = await resp.json();
+          if (!data.valid) {
+            setError(data.error || 'Invalid admin master key.');
+            return;
+          }
+        } catch (err) {
+          setError('Failed to validate admin key. Please try again.');
+          return;
+        }
+      }
     }
 
     setIsSubmitting(true);
@@ -66,7 +91,15 @@ export default function LoginScreen({ isDark, setIsDark }) {
       if (mode === 'signin') {
         await signIn(email.trim(), password);
       } else {
-        await signUp({ email: email.trim(), password, role, fullName: fullName.trim(), rollNumber: rollNumber.trim(), semester: role === 'student' ? parseInt(semester) : null });
+        await signUp({
+          email: email.trim(),
+          password,
+          role,
+          fullName: fullName.trim(),
+          rollNumber: rollNumber.trim(),
+          semester: role === 'student' ? parseInt(semester) : null,
+          semesters: role === 'professor' ? semesters : [],
+        });
       }
     } catch (err) {
       const msg = err.code === 'auth/user-not-found' ? 'No account found with this email.'
@@ -177,10 +210,37 @@ export default function LoginScreen({ isDark, setIsDark }) {
                       onChange={e => setSemester(e.target.value)}
                       className={`w-full border rounded px-2.5 py-2 text-xs focus:outline-none transition ${inputClass}`}
                     >
-                      <option value="">Select your semester...</option>
-                      {[1,2,3,4,5,6].map(s => <option key={s} value={s}>Semester {s}</option>)}
-                    </select>
-                  </div>
+                      <option value="">Select your semester</option>
+                    {[1,2,3,4,5,6].map(s => <option key={s} value={s}>Semester {s}</option>)}
+                   </select>
+                 </div>
+                )}
+
+                {role === 'professor' && (
+                  <div>
+                    <label className="block text-[10px] uppercase text-neutral-500 mb-1.5 font-bold">Semesters You Teach</label>
+                    <div className={`grid grid-cols-3 gap-1 p-1 rounded border ${isDark ? 'bg-black border-neutral-800' : 'bg-neutral-100 border-neutral-200'}`}>
+                      {[1,2,3,4,5,6].map(s => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => toggleSemester(s)}
+                          className={`py-1.5 text-xs font-medium rounded transition ${
+                            semesters.includes(s)
+                              ? (isDark ? 'bg-emerald-600 text-white' : 'bg-emerald-500 text-white shadow-sm')
+                              : 'text-neutral-500'
+                          }`}
+                        >
+                          Sem {s}
+</button>
+                      ))}
+                   </div>
+                    {semesters.length > 0 && (
+                      <div className="text-[9px] text-emerald-500 mt-1.5 font-bold">
+                        ✓ Teaching: {semesters.sort().map(s => `Semester ${s}`).join(', ')}
+                     </div>
+                    )}
+                 </div>
                 )}
 
                 {role === 'admin' && (

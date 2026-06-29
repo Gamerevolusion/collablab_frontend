@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { auth } from '../firebase';
 
 // Central API Gateway URL
 const WS_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
@@ -30,13 +31,32 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId, studentN
       const ws = new WebSocket(WS_URL);
       socketRef.current = ws;
 
-      ws.onopen = () => {
+      ws.onopen = async () => {
         reconnectAttempts.current = 0;
-        ws.send(JSON.stringify({
-          type: 'JOIN_ROOM',
-          lobbyCode,
-          payload: { rollNumber: role === 'professor' ? 'PROFESSOR' : studentId, name: studentName, role }
-        }));
+
+        // CRIT-3: Send Firebase ID token for authentication
+        try {
+          const currentUser = auth.currentUser;
+          if (currentUser) {
+            const token = await currentUser.getIdToken(true);
+            ws.send(JSON.stringify({
+              type: 'AUTH',
+              payload: { token }
+            }));
+          } else {
+            // No user — send empty auth (dev mode will accept, prod will reject)
+            ws.send(JSON.stringify({
+              type: 'AUTH',
+              payload: { token: '' }
+            }));
+          }
+        } catch (err) {
+          console.error('Failed to get auth token:', err);
+          ws.send(JSON.stringify({
+            type: 'AUTH',
+            payload: { token: '' }
+          }));
+        }
       };
 
       ws.onmessage = (event) => {
@@ -44,6 +64,19 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId, studentN
         const { type, payload } = packet;
 
         switch (type) {
+          case 'AUTH_OK':
+            // Authentication successful, now join the room
+            ws.send(JSON.stringify({
+              type: 'JOIN_ROOM',
+              lobbyCode,
+              payload: { rollNumber: role === 'professor' ? 'PROFESSOR' : studentId, name: studentName, role }
+            }));
+            break;
+          case 'AUTH_ERROR':
+            console.error('WebSocket auth failed:', payload);
+            setError(typeof payload === 'string' ? payload : 'Authentication failed.');
+            ws.close();
+            break;
           case 'ERROR':
             setError(payload);
             break;
@@ -158,7 +191,7 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId, studentN
     setIsRunning(true);
     setTerminalOutput('');
     sendMessage('EXECUTE_CODE', { language, code, stdin });
-    // Auto-reset isRunning after 30s if no response arrives (Bug 4 fix)
+    // Auto-reset isRunning after 30s if no response arrives
     clearTimeout(executionTimer.current);
     executionTimer.current = setTimeout(() => {
       setIsRunning(false);

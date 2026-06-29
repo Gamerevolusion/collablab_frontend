@@ -42,7 +42,7 @@ export function AuthProvider({ children }) {
     return unsub;
   }, []);
 
-  const signUp = async ({ email, password, role, fullName, rollNumber, semester }) => {
+  const signUp = async ({ email, password, role, fullName, rollNumber, semester, semesters }) => {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(cred.user, { displayName: fullName });
 
@@ -52,6 +52,7 @@ export function AuthProvider({ children }) {
       role,
       rollNumber: role === 'student' ? rollNumber : '',
       semester: role === 'student' ? (semester || null) : null,
+      semesters: role === 'professor' ? (Array.isArray(semesters) ? semesters : []) : [],
       createdAt: serverTimestamp(),
     };
     await setDoc(doc(db, 'users', cred.user.uid), profile);

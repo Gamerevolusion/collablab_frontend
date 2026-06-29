@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LogOut, Plus, Trash2, BookOpen, GraduationCap, Users, Search, Edit3, Eye, BarChart3, X, Save, ChevronRight, AlertCircle, CheckCircle } from 'lucide-react';
+import { LogOut, Plus, Trash2, BookOpen, GraduationCap, Users, Search, Edit3, Eye, BarChart3, X, Save, ChevronRight, UserCheck, Mail } from 'lucide-react';
 import { collection, query, where, orderBy, getDocs, addDoc, deleteDoc, updateDoc, doc, serverTimestamp, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -55,17 +55,29 @@ export default function AdminDashboard({ isDark, onSignOut }) {
           }`}
         >
           <div className="flex items-center gap-1.5"><Users size={11} /> Students</div>
-        </button>
-      </div>
+       </button>
+        <button
+          onClick={() => setActiveTab('professors')}
+          className={`px-6 py-2.5 text-[10px] font-bold uppercase tracking-wider transition ${
+            activeTab === 'professors'
+              ? (isDark ? 'border-b-2 border-red-500 text-red-400' : 'border-b-2 border-red-600 text-red-700')
+              : 'text-neutral-500 hover:text-neutral-300'
+          }`}
+        >
+          <div className="flex items-center gap-1.5"><UserCheck size={11} /> Professors</div>
+       </button>
+     </div>
 
       <div className="flex-1 overflow-y-auto p-6">
         {activeTab === 'subjects' ? (
           <SubjectsTab isDark={isDark} user={user} borderClass={borderClass} cardClass={cardClass} inputClass={inputClass} />
-        ) : (
+        ) : activeTab === 'students' ? (
           <StudentsTab isDark={isDark} borderClass={borderClass} cardClass={cardClass} inputClass={inputClass} />
+        ) : (
+          <ProfessorsTab isDark={isDark} borderClass={borderClass} cardClass={cardClass} inputClass={inputClass} />
         )}
-      </div>
-    </div>
+     </div>
+   </div>
   );
 }
 
@@ -608,10 +620,323 @@ function StudentsTab({ isDark, borderClass, cardClass, inputClass }) {
               className="w-full flex items-center justify-center gap-1.5 bg-red-600/80 hover:bg-red-500 text-white px-3 py-2 rounded text-[10px] font-bold uppercase transition mt-2"
             >
               <Trash2 size={10} /> Delete This Student
-            </button>
-          </div>
+           </button>
+         </div>
         )}
-      </div>
-    </div>
+     </div>
+   </div>
   );
 }
+
+// ──────────────────────── Professors Tab ────────────────────────
+
+function ProfessorsTab({ isDark, borderClass, cardClass, inputClass }) {
+  const [professors, setProfessors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filterSem, setFilterSem] = useState('');
+  const [filterName, setFilterName] = useState('');
+  const [selectedProf, setSelectedProf] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editSemesters, setEditSemesters] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [profStats, setProfStats] = useState({ sessions: 0, students: 0 });
+
+  const fetchProfessors = async () => {
+    setLoading(true);
+    try {
+      const q = query(collection(db, 'users'), where('role', '==', 'professor'), limit(100));
+      const snap = await getDocs(q);
+      setProfessors(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (err) {
+      console.error('Failed to load professors:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchProfessors(); }, []);
+
+  const filteredProfs = professors.filter(p => {
+    if (filterSem && !(p.semesters || []).includes(parseInt(filterSem))) return false;
+    if (filterName && !(p.displayName || '').toLowerCase().includes(filterName.toLowerCase())) return false;
+    return true;
+  });
+
+  const selectProfessor = async (prof) => {
+    setSelectedProf(prof);
+    setEditing(false);
+    setEditName(prof.displayName || '');
+    setEditSemesters(Array.isArray(prof.semesters) ? prof.semesters : []);
+    try {
+      const sessQ = query(collection(db, 'sessions'), where('professorUid', '==', prof.id));
+      const sessSnap = await getDocs(sessQ);
+      const sessIds = sessSnap.docs.map(d => d.id);
+      let totalStudents = 0;
+      if (sessIds.length > 0) {
+        const partQ = query(collection(db, 'sessionParticipants'), where('sessionId', 'in', sessIds.slice(0, 10)));
+        const partSnap = await getDocs(partQ);
+        totalStudents = partSnap.size;
+      }
+      setProfStats({ sessions: sessSnap.size, students: totalStudents });
+    } catch (err) {
+      console.error('Failed to load professor stats:', err);
+      setProfStats({ sessions: 0, students: 0 });
+    }
+  };
+
+  const toggleEditSemester = (s) => {
+    setEditSemesters(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedProf) return;
+    setSaving(true);
+    try {
+      await updateDoc(doc(db, 'users', selectedProf.id), {
+        displayName: editName.trim(),
+        semesters: editSemesters,
+      });
+      setProfessors(prev => prev.map(p => p.id === selectedProf.id ? { ...p, displayName: editName.trim(), semesters: editSemesters } : p));
+      setSelectedProf(prev => ({ ...prev, displayName: editName.trim(), semesters: editSemesters }));
+      setEditing(false);
+    } catch (err) {
+      console.error('Failed to update professor:', err);
+      alert('Failed to update: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteProfessor = async (prof) => {
+    if (!window.confirm(`Delete ${prof.displayName || prof.email}? This will remove their Firestore profile. Their auth account also needs backend deletion.`)) return;
+    let errorMessage = '';
+    try {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch(`${BACKEND_URL}/api/delete-user`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid: prof.id }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          if (res.status === 500 && data.error?.includes('Firebase Admin SDK')) {
+            errorMessage = 'Backend not configured. Only Firestore profile deleted - auth still exists.';
+          } else {
+            errorMessage = `Backend error: ${data.error || res.statusText}`;
+          }
+        }
+      } catch (err) {
+        errorMessage = `Backend unreachable (${err.message}). Only Firestore profile deleted.`;
+      }
+      await deleteDoc(doc(db, 'users', prof.id));
+      setProfessors(prev => prev.filter(p => p.id !== prof.id));
+      if (selectedProf?.id === prof.id) setSelectedProf(null);
+      if (errorMessage) alert(errorMessage);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete: ' + err.message);
+    }
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto flex gap-6">
+      {/* List */}
+      <div className={`flex-1 border rounded-xl p-5 ${cardClass}`}>
+        <div className="flex items-center gap-2 mb-4">
+          <UserCheck size={16} className={isDark ? 'text-red-400' : 'text-red-600'} />
+          <div className="text-sm font-bold">Professor Management</div>
+          <span className={`text-[9px] px-2 py-0.5 rounded font-bold ${isDark ? 'bg-neutral-800 text-neutral-400' : 'bg-neutral-100 text-neutral-500'}`}>
+            {filteredProfs.length} / {professors.length}
+         </span>
+       </div>
+
+        <div className={`flex gap-2 mb-4 p-3 rounded border ${isDark ? 'bg-neutral-950 border-neutral-800' : 'bg-neutral-50 border-neutral-200'}`}>
+          <div className="flex-1">
+            <label className="block text-[8px] uppercase text-neutral-500 font-bold mb-1">Filter by Semester</label>
+            <select
+              value={filterSem}
+              onChange={e => setFilterSem(e.target.value)}
+              className={`w-full border rounded px-2 py-1.5 text-[10px] focus:outline-none ${inputClass}`}
+            >
+              <option value="">All Semesters</option>
+              {SEMESTERS.map(s => <option key={s} value={s}>Semester {s}</option>)}
+           </select>
+         </div>
+          <div className="flex-1">
+            <label className="block text-[8px] uppercase text-neutral-500 font-bold mb-1">Search by Name</label>
+            <input
+              type="text"
+              value={filterName}
+              onChange={e => setFilterName(e.target.value)}
+              placeholder="e.g. Sharma"
+              className={`w-full border rounded px-2 py-1.5 text-[10px] focus:outline-none ${inputClass}`}
+            />
+         </div>
+       </div>
+
+        {loading ? (
+          <div className="text-[10px] text-neutral-500 text-center py-8">Loading professors</div>
+        ) : filteredProfs.length === 0 ? (
+          <div className="text-center py-8">
+            <UserCheck size={20} className="mx-auto mb-2 text-neutral-600" />
+            <div className="text-[10px] text-neutral-500">No professors found</div>
+            <div className="text-[9px] text-neutral-600 mt-1">Professors sign up by choosing the "Professor" role</div>
+         </div>
+        ) : (
+          <div className="space-y-1.5 max-h-[500px] overflow-y-auto">
+            {filteredProfs.map(p => (
+              <button
+                key={p.id}
+                onClick={() => selectProfessor(p)}
+                className={`w-full text-left p-3 rounded border transition flex items-center justify-between ${
+                  selectedProf?.id === p.id
+                    ? (isDark ? 'bg-red-900/30 border-red-700' : 'bg-red-50 border-red-300')
+                    : (isDark ? 'bg-neutral-950 border-neutral-800 hover:bg-neutral-800/50' : 'bg-neutral-50 border-neutral-200 hover:bg-neutral-100')
+                }`}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold truncate">{p.displayName || p.email}</div>
+                  <div className="text-[9px] text-neutral-500 truncate">{p.email}</div>
+               </div>
+                <div className="flex gap-1 ml-2 flex-wrap justify-end">
+                  {(p.semesters || []).slice(0, 3).map(s => (
+                    <span key={s} className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${isDark ? 'bg-red-500/20 text-red-400' : 'bg-red-100 text-red-700'}`}>
+                      S{s}
+                   </span>
+                  ))}
+                  {(!p.semesters || p.semesters.length === 0) && (
+                    <span className="text-[8px] text-neutral-600">None</span>
+                  )}
+               </div>
+             </button>
+            ))}
+         </div>
+        )}
+     </div>
+
+      {/* Detail Panel */}
+      <div className={`w-80 border rounded-xl p-5 ${cardClass}`}>
+        {selectedProf ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 mb-3">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${isDark ? 'bg-red-500/20 text-red-400' : 'bg-red-100 text-red-700'}`}>
+                {(selectedProf.displayName || 'P')[0].toUpperCase()}
+             </div>
+              <div className="flex-1 min-w-0">
+                {editing ? (
+                  <input
+                    value={editName}
+                    onChange={e => setEditName(e.target.value)}
+                    className={`w-full text-xs font-bold border rounded px-2 py-1 ${inputClass}`}
+                  />
+                ) : (
+                  <div className="text-sm font-bold truncate">{selectedProf.displayName || 'Professor'}</div>
+                )}
+               <div className="text-[10px] text-neutral-500 truncate">{selectedProf.email}</div>
+             </div>
+           </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className={`rounded-lg p-2 border ${isDark ? 'bg-neutral-950 border-neutral-800' : 'bg-neutral-50 border-neutral-200'}`}>
+                <div className="text-[8px] text-neutral-500 uppercase font-bold">Sessions</div>
+                <div className="text-xs font-bold">{profStats.sessions}</div>
+             </div>
+              <div className={`rounded-lg p-2 border ${isDark ? 'bg-neutral-950 border-neutral-800' : 'bg-neutral-50 border-neutral-200'}`}>
+                <div className="text-[8px] text-neutral-500 uppercase font-bold">Students</div>
+                <div className="text-xs font-bold">{profStats.students}</div>
+             </div>
+           </div>
+
+            <div>
+              <div className="text-[9px] text-neutral-500 uppercase font-bold mb-2">Semesters Teaching</div>
+              {editing ? (
+                <div className={`grid grid-cols-3 gap-1 p-1 rounded border ${isDark ? 'bg-black border-neutral-800' : 'bg-neutral-100 border-neutral-200'}`}>
+                  {SEMESTERS.map(s => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => toggleEditSemester(s)}
+                      className={`py-1.5 text-xs font-medium rounded transition ${
+                        editSemesters.includes(s)
+                          ? (isDark ? 'bg-red-600 text-white' : 'bg-red-500 text-white')
+                          : 'text-neutral-500'
+                      }`}
+                    >
+                      Sem {s}
+                   </button>
+                  ))}
+               </div>
+              ) : (
+                <div className="flex flex-wrap gap-1">
+                  {(selectedProf.semesters || []).length === 0 ? (
+                    <span className="text-[10px] text-neutral-600">No semesters assigned</span>
+                  ) : (
+                    (selectedProf.semesters || []).map(s => (
+                      <span key={s} className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${isDark ? 'bg-red-500/20 text-red-400' : 'bg-red-100 text-red-700'}`}>
+                        Semester {s}
+                     </span>
+                    ))
+                  )}
+               </div>
+              )}
+           </div>
+
+            <div>
+              <div className="text-[9px] text-neutral-500 uppercase font-bold mb-1">Email</div>
+              <div className="text-[10px] font-mono flex items-center gap-1">
+                <Mail size={10} className="text-neutral-500" /> {selectedProf.email}
+             </div>
+           </div>
+
+            <div className="flex gap-2">
+              {editing ? (
+                <>
+                  <button
+                    onClick={() => { setEditing(false); setEditName(selectedProf.displayName); setEditSemesters(selectedProf.semesters || []); }}
+                    className={`flex-1 px-3 py-2 rounded text-[10px] font-bold uppercase transition ${isDark ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200' : 'bg-neutral-200 hover:bg-neutral-300 text-neutral-700'}`}
+                  >
+                    Cancel
+                 </button>
+                  <button
+                    onClick={handleSaveEdit}
+                    disabled={saving || !editName.trim()}
+                    className="flex-1 flex items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white px-3 py-2 rounded text-[10px] font-bold uppercase transition"
+                  >
+                    <Save size={10} /> Save
+                 </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setEditing(true)}
+                  className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded text-[10px] font-bold uppercase transition ${isDark ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200' : 'bg-neutral-200 hover:bg-neutral-300 text-neutral-700'}`}
+                >
+                  <Edit3 size={10} /> Edit Details
+               </button>
+              )}
+           </div>
+
+            <button
+              onClick={() => handleDeleteProfessor(selectedProf)}
+              className="w-full flex items-center justify-center gap-1.5 bg-red-600/80 hover:bg-red-500 text-white px-3 py-2 rounded text-[10px] font-bold uppercase transition"
+            >
+              <Trash2 size={10} /> Delete Professor
+           </button>
+         </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full py-10 text-center">
+            <UserCheck size={24} className="text-neutral-600 mb-3" />
+            <div className="text-xs text-neutral-500">Select a professor to view details</div>
+            <div className="text-[10px] text-neutral-600 mt-1">Click on any row to see assigned semesters, stats, and edit options</div>
+         </div>
+        )}
+     </div>
+   </div>
+  );
+}
+
+

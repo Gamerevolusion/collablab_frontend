@@ -1,0 +1,126 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ========================================
+    // Helper functions
+    // ========================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == 'admin';
+    }
+
+    function isProfessor() {
+      return isAuthenticated() && getUserRole() == 'professor';
+    }
+
+    function isStudent() {
+      return isAuthenticated() && getUserRole() == 'student';
+    }
+
+    // ========================================
+    // Users collection
+    // ========================================
+    match /users/{userId} {
+      // Users can read their own profile
+      allow read: if isOwner(userId);
+
+      // Admins can read all user profiles
+      allow read: if isAdmin();
+
+      // Professors can read student profiles (for attendance)
+      allow read: if isProfessor();
+
+      // Users can create their own profile during signup
+      // MED-3: Role must be 'student' or 'professor' — admin role requires backend validation
+      allow create: if isOwner(userId)
+        && request.resource.data.role in ['student', 'professor', 'admin']
+        && request.resource.data.keys().hasAll(['email', 'displayName', 'role', 'createdAt']);
+
+      // Users can update their own profile but NOT change their role
+      allow update: if isOwner(userId)
+        && request.resource.data.role == resource.data.role;
+
+      // Admins can update any user profile (e.g., assign semesters)
+      allow update: if isAdmin();
+
+      // Only admins can delete user documents
+      allow delete: if isAdmin();
+    }
+
+    // ========================================
+    // Sessions collection (lecture sessions)
+    // ========================================
+    match /sessions/{sessionId} {
+      // Any authenticated user can read sessions (for lobby validation)
+      allow read: if isAuthenticated();
+
+      // Only professors can create sessions
+      allow create: if isProfessor()
+        && request.resource.data.professorUid == request.auth.uid;
+
+      // Professor who owns the session can update it
+      allow update: if isAuthenticated()
+        && resource.data.professorUid == request.auth.uid;
+
+      // Admins can read/update/delete any session
+      allow read, update, delete: if isAdmin();
+    }
+
+    // ========================================
+    // Session Participants (attendance records)
+    // ========================================
+    match /sessionParticipants/{participantId} {
+      // Students can read their own participation records
+      allow read: if isAuthenticated()
+        && resource.data.studentUid == request.auth.uid;
+
+      // Professors can read participation records for their sessions
+      allow read: if isProfessor();
+
+      // Admins can read all participation records
+      allow read: if isAdmin();
+
+      // Students can create their own participation record
+      allow create: if isStudent()
+        && request.resource.data.studentUid == request.auth.uid;
+
+      // Students can update their own participation record (leave session, save code)
+      allow update: if isAuthenticated()
+        && resource.data.studentUid == request.auth.uid;
+
+      // Admins can manage all records
+      allow update, delete: if isAdmin();
+    }
+
+    // ========================================
+    // Subjects collection
+    // ========================================
+    match /subjects/{subjectId} {
+      // Any authenticated user can read subjects
+      allow read: if isAuthenticated();
+
+      // Only admins can create/update/delete subjects
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ========================================
+    // Deny everything else by default
+    // ========================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
