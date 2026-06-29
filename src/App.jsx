@@ -10,7 +10,7 @@ import AdminDashboard from './components/AdminDashboard';
 import { useCollabSocket } from './hooks/useCollabSocket';
 import {
   doc,
-  addDoc,
+  setDoc,
   updateDoc,
   collection,
   serverTimestamp,
@@ -124,7 +124,8 @@ function AppContent() {
             setParticipantDocId(existingParticipantDoc.id);
           } else {
             // Create new participation record
-            const partDoc = await addDoc(collection(db, 'sessionParticipants'), {
+            const newPartRef = doc(collection(db, 'sessionParticipants'));
+            await setDoc(newPartRef, {
               lobbyCode: code,
               sessionId: activeSessionId,
               studentUid: user.uid,
@@ -139,7 +140,7 @@ function AppContent() {
               professorName: sessionProfessorName,
               codeSnapshots: {}, // Store code per file per language
             });
-            setParticipantDocId(partDoc.id);
+            setParticipantDocId(newPartRef.id);
           }
         } catch (err) {
           console.error('Failed to record session participation:', err);
@@ -160,7 +161,8 @@ function AppContent() {
     setInSession(true);
 
     try {
-      const sessDoc = await addDoc(collection(db, 'sessions'), {
+      const newSessRef = doc(collection(db, 'sessions'));
+      await setDoc(newSessRef, {
         lobbyCode: code,
         professorUid: user.uid,
         professorName: userProfile?.displayName || '',
@@ -171,7 +173,7 @@ function AppContent() {
         semester: semester || null,
         subject: subject || '',
       });
-      setSessionDocId(sessDoc.id);
+      setSessionDocId(newSessRef.id);
     } catch (err) {
       console.error('Failed to record session:', err);
     }
