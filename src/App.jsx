@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Sun, Moon, LogOut } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginScreen from './components/LoginScreen';
@@ -18,7 +18,6 @@ import {
   where,
   limit,
   getDocs,
-  getDoc,
 } from 'firebase/firestore';
 import { db } from './firebase';
 
@@ -35,6 +34,9 @@ function AppContent() {
   const [localCode, setLocalCode] = useState('print("System Online.")\n');
   const [selectedLanguage, setSelectedLanguage] = useState('python');
   const [isHandRaised, setIsHandRaised] = useState(false);
+
+  // Track peak student count for accurate attendance
+  const peakStudentCount = useRef(0);
 
   const role = userProfile?.role || 'student';
   const studentId = role === 'student'
@@ -68,6 +70,13 @@ function AppContent() {
     reportPaste,
     dismissPasteAlert,
   } = useCollabSocket({ isJoined: inSession, role, lobbyCode, studentId, studentName });
+
+  // Track peak student count
+  useEffect(() => {
+    if (connectedStudents.length > peakStudentCount.current) {
+      peakStudentCount.current = connectedStudents.length;
+    }
+  }, [connectedStudents]);
 
   const handleJoinSession = async (code) => {
     setJoinError('');
@@ -159,6 +168,7 @@ function AppContent() {
   const handleCreateSession = async (code, semester, subject) => {
     setLobbyCode(code);
     setInSession(true);
+    peakStudentCount.current = 0; // Reset peak count for new session
 
     try {
       const newSessRef = doc(collection(db, 'sessions'));
@@ -179,31 +189,28 @@ function AppContent() {
     }
   };
 
-  const leaveSession = async () => {
-    // Save code snapshots before leaving
+  const getActiveFileName = useCallback(() => {
+    if (selectedLanguage === 'html') return 'index.html';
+    if (selectedLanguage === 'python') return 'main.py';
+    if (selectedLanguage === 'java') return 'Main.java';
+    return `main.${selectedLanguage}`;
+  }, [selectedLanguage]);
+
+  const leaveSession = useCallback(async () => {
+    // Save code snapshots before leaving (student only)
     if (participantDocId && role === 'student') {
       try {
-        const partRef = doc(db, 'sessionParticipants', participantDocId);
-        const partSnap = await getDoc(partRef);
-        if (partSnap.exists()) {
-          const partData = partSnap.data();
-          const currentSnapshots = partData.codeSnapshots || {};
-          // Save current code for the active file/language
-          const activeFileName = selectedLanguage === 'html' ? 'index.html' : 
-            selectedLanguage === 'python' ? 'main.py' :
-            selectedLanguage === 'java' ? 'Main.java' : `main.${selectedLanguage}`;
-          const langKey = `${selectedLanguage}:${activeFileName}`;
-          const updatedSnapshots = {
-            ...currentSnapshots,
-            [langKey]: {
-              code: localCode,
-              language: selectedLanguage,
-              fileName: activeFileName,
-              updatedAt: serverTimestamp(),
-            }
-          };
-          await updateDoc(partRef, { codeSnapshots: updatedSnapshots });
-        }
+        const activeFileName = getActiveFileName();
+        const langKey = `${selectedLanguage}:${activeFileName}`;
+        // Direct update using dot notation — no getDoc needed
+        await updateDoc(doc(db, 'sessionParticipants', participantDocId), {
+          [`codeSnapshots.${langKey}`]: {
+            code: localCode,
+            language: selectedLanguage,
+            fileName: activeFileName,
+            updatedAt: serverTimestamp(),
+          }
+        });
       } catch (err) {
         console.error('Failed to save code snapshots:', err);
       }
@@ -222,9 +229,10 @@ function AppContent() {
     }
     if (sessionDocId) {
       try {
+        // Use peak student count instead of current (potentially reset) value
         await updateDoc(doc(db, 'sessions', sessionDocId), {
           endedAt: serverTimestamp(),
-          studentCount: connectedStudents.length,
+          studentCount: peakStudentCount.current || connectedStudents.length,
         });
       } catch (err) {
         console.error('Failed to update session:', err);
@@ -235,50 +243,74 @@ function AppContent() {
     setIsHandRaised(false);
     setSessionDocId(null);
     setParticipantDocId(null);
-  };
+    peakStudentCount.current = 0;
+  }, [participantDocId, sessionDocId, role, selectedLanguage, localCode, connectedStudents.length, getActiveFileName]);
 
-  React.useEffect(() => {
+  // Handle socket error — auto-leave session
+  useEffect(() => {
     if (socketError && inSession) {
       leaveSession();
     }
   }, [socketError]);
 
-  // Periodically save code snapshots to Firestore
-  React.useEffect(() => {
+  // Save code snapshots periodically (every 10 seconds, no getDoc — direct update)
+  useEffect(() => {
     if (!inSession || role !== 'student' || !participantDocId) return;
     const interval = setInterval(async () => {
       try {
-        const partRef = doc(db, 'sessionParticipants', participantDocId);
-        const partSnap = await getDoc(partRef);
-        if (!partSnap.exists()) return;
-        
-        const partData = partSnap.data();
-        const currentSnapshots = partData.codeSnapshots || {};
-        
-        // Get the current file name based on language
-        const activeFileName = selectedLanguage === 'html' ? 'index.html' : 
-          selectedLanguage === 'python' ? 'main.py' :
-          selectedLanguage === 'java' ? 'Main.java' : `main.${selectedLanguage}`;
+        const activeFileName = getActiveFileName();
         const langKey = `${selectedLanguage}:${activeFileName}`;
-        
-        const updatedSnapshots = {
-          ...currentSnapshots,
-          [langKey]: {
+        // Direct update using dot notation — eliminates the read
+        await updateDoc(doc(db, 'sessionParticipants', participantDocId), {
+          [`codeSnapshots.${langKey}`]: {
             code: localCode,
             language: selectedLanguage,
             fileName: activeFileName,
             updatedAt: serverTimestamp(),
           }
-        };
-        
-        await updateDoc(partRef, { codeSnapshots: updatedSnapshots });
+        });
       } catch (err) {
         console.error('Failed to save code snapshot:', err);
       }
     }, 10000); // Save every 10 seconds
     
     return () => clearInterval(interval);
-  }, [inSession, role, participantDocId, localCode, selectedLanguage]);
+  }, [inSession, role, participantDocId, localCode, selectedLanguage, getActiveFileName]);
+
+  // beforeunload — try to save attendance record when browser/tab closes
+  useEffect(() => {
+    if (!inSession) return;
+
+    const handleBeforeUnload = () => {
+      // Use sendBeacon for reliable delivery on tab close
+      if (participantDocId && role === 'student') {
+        // sendBeacon doesn't support Firestore SDK, but we can at least attempt the update
+        // The periodic save (every 10s) ensures we lose at most 10s of work
+        try {
+          updateDoc(doc(db, 'sessionParticipants', participantDocId), {
+            leftAt: serverTimestamp(),
+            status: 'completed',
+            languages: [selectedLanguage],
+          });
+        } catch (e) {
+          // Best effort — may not complete
+        }
+      }
+      if (sessionDocId && role === 'professor') {
+        try {
+          updateDoc(doc(db, 'sessions', sessionDocId), {
+            endedAt: serverTimestamp(),
+            studentCount: peakStudentCount.current || connectedStudents.length,
+          });
+        } catch (e) {
+          // Best effort
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [inSession, participantDocId, sessionDocId, role, selectedLanguage, connectedStudents.length]);
 
   const handleRaiseHand = () => { raiseHand(); setIsHandRaised(true); };
   const handleLowerHand = () => { lowerHand(); setIsHandRaised(false); };

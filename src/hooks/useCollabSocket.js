@@ -10,6 +10,7 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId, studentN
   const reconnectTimer = useRef(null);
   const reconnectAttempts = useRef(0);
   const executionTimer = useRef(null);
+  const intentionalClose = useRef(false);
   const [connectedStudents, setConnectedStudents] = useState([]);
   const [studentStreams, setStudentStreams] = useState({}); // { rollNumber: { fileName: code } }
   const [studentOutputs, setStudentOutputs] = useState({});
@@ -25,6 +26,7 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId, studentN
 
   useEffect(() => {
     if (!isJoined) return;
+    intentionalClose.current = false;
 
     function connect() {
       const ws = new WebSocket(WS_URL);
@@ -74,6 +76,7 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId, studentN
           case 'AUTH_ERROR':
             console.error('WebSocket auth failed:', payload);
             setError(typeof payload === 'string' ? payload : 'Authentication failed.');
+            intentionalClose.current = true;
             ws.close();
             break;
           case 'ERROR':
@@ -147,14 +150,17 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId, studentN
 
       ws.onclose = () => {
         socketRef.current = null;
-        // Attempt reconnection with exponential backoff (max 3 retries)
-        if (reconnectAttempts.current < 3) {
-          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 8000);
+        // If this was an intentional close (user left, or auth error), don't reconnect
+        if (intentionalClose.current) return;
+
+        // Attempt reconnection with exponential backoff (max 5 retries, capped at 10s)
+        if (reconnectAttempts.current < 5) {
+          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000);
           reconnectAttempts.current += 1;
-          console.log(`WebSocket disconnected. Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current}/3)...`);
+          console.log(`WebSocket disconnected. Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current}/5)...`);
           reconnectTimer.current = setTimeout(connect, delay);
         } else {
-          console.warn('WebSocket reconnection failed after 3 attempts.');
+          console.warn('WebSocket reconnection failed after 5 attempts.');
           setError('Connection lost. Please rejoin the session.');
         }
       };
@@ -167,7 +173,7 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId, studentN
     connect();
 
     return () => {
-      reconnectAttempts.current = 999; // prevent reconnection on intentional cleanup
+      intentionalClose.current = true; // prevent reconnection on intentional cleanup
       clearTimeout(reconnectTimer.current);
       clearTimeout(executionTimer.current);
       if (socketRef.current) socketRef.current.close();

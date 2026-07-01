@@ -157,6 +157,8 @@ export default function StudentWorkspace({
     }
   }, [files, activeFileIdx, monacoLang, activeFile?.name, isWebMode, onSyncCode, setLocalCode]);
 
+  const completionProvidersRegistered = useRef(false);
+
   const handleEditorMount = (editor, monaco) => {
     editorRef.current = editor;
 
@@ -166,6 +168,241 @@ export default function StudentWorkspace({
         onReportPaste(pastedText.length);
       }
     });
+
+    // Register IntelliSense completion providers (once)
+    if (!completionProvidersRegistered.current) {
+      completionProvidersRegistered.current = true;
+
+      // --- Python ---
+      const pythonKeywords = [
+        'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break', 'class',
+        'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from', 'global',
+        'if', 'import', 'in', 'is', 'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise',
+        'return', 'try', 'while', 'with', 'yield',
+      ];
+      const pythonBuiltins = [
+        { label: 'print', insert: 'print(${1})', detail: 'print(*objects, sep=" ", end="\\n")' },
+        { label: 'input', insert: 'input(${1:""})', detail: 'input([prompt]) -> str' },
+        { label: 'len', insert: 'len(${1})', detail: 'len(s) -> int' },
+        { label: 'range', insert: 'range(${1:stop})', detail: 'range(stop) or range(start, stop[, step])' },
+        { label: 'int', insert: 'int(${1})', detail: 'int(x) -> int' },
+        { label: 'float', insert: 'float(${1})', detail: 'float(x) -> float' },
+        { label: 'str', insert: 'str(${1})', detail: 'str(object) -> str' },
+        { label: 'list', insert: 'list(${1})', detail: 'list([iterable]) -> list' },
+        { label: 'dict', insert: 'dict(${1})', detail: 'dict(**kwargs) -> dict' },
+        { label: 'tuple', insert: 'tuple(${1})', detail: 'tuple([iterable]) -> tuple' },
+        { label: 'set', insert: 'set(${1})', detail: 'set([iterable]) -> set' },
+        { label: 'sorted', insert: 'sorted(${1})', detail: 'sorted(iterable, key=None, reverse=False)' },
+        { label: 'enumerate', insert: 'enumerate(${1})', detail: 'enumerate(iterable, start=0)' },
+        { label: 'zip', insert: 'zip(${1})', detail: 'zip(*iterables) -> zip object' },
+        { label: 'map', insert: 'map(${1:func}, ${2:iterable})', detail: 'map(func, *iterables)' },
+        { label: 'filter', insert: 'filter(${1:func}, ${2:iterable})', detail: 'filter(func, iterable)' },
+        { label: 'open', insert: 'open(${1:"file"}, ${2:"r"})', detail: 'open(file, mode="r")' },
+        { label: 'type', insert: 'type(${1})', detail: 'type(object) -> type' },
+        { label: 'isinstance', insert: 'isinstance(${1:obj}, ${2:classinfo})', detail: 'isinstance(object, classinfo)' },
+        { label: 'abs', insert: 'abs(${1})', detail: 'abs(x) -> number' },
+        { label: 'max', insert: 'max(${1})', detail: 'max(iterable) or max(a, b, ...)' },
+        { label: 'min', insert: 'min(${1})', detail: 'min(iterable) or min(a, b, ...)' },
+        { label: 'sum', insert: 'sum(${1})', detail: 'sum(iterable, start=0)' },
+        { label: 'round', insert: 'round(${1:number})', detail: 'round(number[, ndigits])' },
+        { label: 'any', insert: 'any(${1})', detail: 'any(iterable) -> bool' },
+        { label: 'all', insert: 'all(${1})', detail: 'all(iterable) -> bool' },
+        { label: 'reversed', insert: 'reversed(${1})', detail: 'reversed(seq) -> iterator' },
+        { label: 'hasattr', insert: 'hasattr(${1:obj}, ${2:"name"})', detail: 'hasattr(object, name) -> bool' },
+        { label: 'getattr', insert: 'getattr(${1:obj}, ${2:"name"})', detail: 'getattr(object, name[, default])' },
+        { label: 'format', insert: 'format(${1})', detail: 'format(value[, format_spec])' },
+      ];
+
+      monaco.languages.registerCompletionItemProvider('python', {
+        provideCompletionItems: (model, position) => {
+          const word = model.getWordUntilPosition(position);
+          const range = {
+            startLineNumber: position.lineNumber,
+            endLineNumber: position.lineNumber,
+            startColumn: word.startColumn,
+            endColumn: word.endColumn,
+          };
+          const suggestions = [
+            ...pythonKeywords.map(k => ({
+              label: k,
+              kind: monaco.languages.CompletionItemKind.Keyword,
+              insertText: k,
+              range,
+            })),
+            ...pythonBuiltins.map(b => ({
+              label: b.label,
+              kind: monaco.languages.CompletionItemKind.Function,
+              insertText: b.insert,
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              detail: b.detail,
+              range,
+            })),
+          ];
+          return { suggestions };
+        },
+      });
+
+      // --- Java ---
+      const javaKeywords = [
+        'abstract', 'assert', 'boolean', 'break', 'byte', 'case', 'catch', 'char', 'class',
+        'const', 'continue', 'default', 'do', 'double', 'else', 'enum', 'extends', 'final',
+        'finally', 'float', 'for', 'goto', 'if', 'implements', 'import', 'instanceof', 'int',
+        'interface', 'long', 'native', 'new', 'package', 'private', 'protected', 'public',
+        'return', 'short', 'static', 'strictfp', 'super', 'switch', 'synchronized', 'this',
+        'throw', 'throws', 'transient', 'try', 'void', 'volatile', 'while',
+      ];
+      const javaBuiltins = [
+        { label: 'System.out.println', insert: 'System.out.println(${1});', detail: 'Print to stdout with newline' },
+        { label: 'System.out.print', insert: 'System.out.print(${1});', detail: 'Print to stdout' },
+        { label: 'System.out.printf', insert: 'System.out.printf(${1:"%s"}, ${2});', detail: 'Formatted print' },
+        { label: 'String', insert: 'String ${1:s} = ${2:""};', detail: 'String variable' },
+        { label: 'Scanner', insert: 'Scanner ${1:sc} = new Scanner(System.in);', detail: 'Scanner for input' },
+        { label: 'ArrayList', insert: 'ArrayList<${1:String}> ${2:list} = new ArrayList<>();', detail: 'ArrayList' },
+        { label: 'HashMap', insert: 'HashMap<${1:String}, ${2:String}> ${3:map} = new HashMap<>();', detail: 'HashMap' },
+        { label: 'Arrays.sort', insert: 'Arrays.sort(${1:arr});', detail: 'Sort an array' },
+        { label: 'Math.max', insert: 'Math.max(${1:a}, ${2:b})', detail: 'Maximum of two values' },
+        { label: 'Math.min', insert: 'Math.min(${1:a}, ${2:b})', detail: 'Minimum of two values' },
+        { label: 'Math.abs', insert: 'Math.abs(${1:x})', detail: 'Absolute value' },
+        { label: 'Math.sqrt', insert: 'Math.sqrt(${1:x})', detail: 'Square root' },
+        { label: 'Math.pow', insert: 'Math.pow(${1:base}, ${2:exp})', detail: 'Power' },
+        { label: 'Integer.parseInt', insert: 'Integer.parseInt(${1:s})', detail: 'Parse string to int' },
+        { label: 'Double.parseDouble', insert: 'Double.parseDouble(${1:s})', detail: 'Parse string to double' },
+        { label: 'main', insert: 'public static void main(String[] args) {\n\t${1}\n}', detail: 'Main method' },
+      ];
+
+      monaco.languages.registerCompletionItemProvider('java', {
+        provideCompletionItems: (model, position) => {
+          const word = model.getWordUntilPosition(position);
+          const range = {
+            startLineNumber: position.lineNumber,
+            endLineNumber: position.lineNumber,
+            startColumn: word.startColumn,
+            endColumn: word.endColumn,
+          };
+          const suggestions = [
+            ...javaKeywords.map(k => ({
+              label: k,
+              kind: monaco.languages.CompletionItemKind.Keyword,
+              insertText: k,
+              range,
+            })),
+            ...javaBuiltins.map(b => ({
+              label: b.label,
+              kind: monaco.languages.CompletionItemKind.Function,
+              insertText: b.insert,
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              detail: b.detail,
+              range,
+            })),
+          ];
+          return { suggestions };
+        },
+      });
+
+      // --- C / C++ ---
+      const cKeywords = [
+        'auto', 'break', 'case', 'char', 'const', 'continue', 'default', 'do', 'double',
+        'else', 'enum', 'extern', 'float', 'for', 'goto', 'if', 'inline', 'int', 'long',
+        'register', 'restrict', 'return', 'short', 'signed', 'sizeof', 'static', 'struct',
+        'switch', 'typedef', 'union', 'unsigned', 'void', 'volatile', 'while',
+      ];
+      const cBuiltins = [
+        { label: 'printf', insert: 'printf(${1:"%s\\n"}, ${2});', detail: 'Print formatted output (stdio.h)' },
+        { label: 'scanf', insert: 'scanf(${1:"%d"}, ${2:&var});', detail: 'Read formatted input (stdio.h)' },
+        { label: 'fprintf', insert: 'fprintf(${1:stderr}, ${2:"%s"}, ${3});', detail: 'Print to file stream' },
+        { label: 'malloc', insert: 'malloc(${1:size})', detail: 'Allocate memory (stdlib.h)' },
+        { label: 'calloc', insert: 'calloc(${1:n}, ${2:size})', detail: 'Allocate zeroed memory (stdlib.h)' },
+        { label: 'free', insert: 'free(${1:ptr});', detail: 'Free allocated memory (stdlib.h)' },
+        { label: 'strlen', insert: 'strlen(${1:str})', detail: 'String length (string.h)' },
+        { label: 'strcmp', insert: 'strcmp(${1:s1}, ${2:s2})', detail: 'Compare strings (string.h)' },
+        { label: 'strcpy', insert: 'strcpy(${1:dest}, ${2:src});', detail: 'Copy string (string.h)' },
+        { label: 'strcat', insert: 'strcat(${1:dest}, ${2:src});', detail: 'Concatenate strings (string.h)' },
+        { label: 'memset', insert: 'memset(${1:ptr}, ${2:0}, ${3:size});', detail: 'Fill memory (string.h)' },
+        { label: '#include', insert: '#include <${1:stdio.h}>', detail: 'Include header' },
+      ];
+
+      const cppExtras = [
+        { label: 'cout', insert: 'std::cout << ${1} << std::endl;', detail: 'Print to stdout (iostream)' },
+        { label: 'cin', insert: 'std::cin >> ${1};', detail: 'Read from stdin (iostream)' },
+        { label: 'cerr', insert: 'std::cerr << ${1} << std::endl;', detail: 'Print to stderr (iostream)' },
+        { label: 'endl', insert: 'std::endl', detail: 'End line and flush' },
+        { label: 'string', insert: 'std::string ${1:s} = ${2:""};', detail: 'std::string (string)' },
+        { label: 'vector', insert: 'std::vector<${1:int}> ${2:v};', detail: 'std::vector (vector)' },
+        { label: 'map', insert: 'std::map<${1:std::string}, ${2:int}> ${3:m};', detail: 'std::map (map)' },
+        { label: 'sort', insert: 'std::sort(${1:v}.begin(), ${1:v}.end());', detail: 'Sort (algorithm)' },
+        { label: 'push_back', insert: 'push_back(${1})', detail: 'Append to vector' },
+        { label: 'size', insert: 'size()', detail: 'Container size' },
+        { label: 'begin', insert: 'begin()', detail: 'Iterator begin' },
+        { label: 'end', insert: 'end()', detail: 'Iterator end' },
+        { label: 'getline', insert: 'std::getline(std::cin, ${1:line});', detail: 'Read full line' },
+        { label: 'using namespace std', insert: 'using namespace std;', detail: 'Use std namespace' },
+      ];
+
+      // Register for C
+      monaco.languages.registerCompletionItemProvider('c', {
+        provideCompletionItems: (model, position) => {
+          const word = model.getWordUntilPosition(position);
+          const range = {
+            startLineNumber: position.lineNumber,
+            endLineNumber: position.lineNumber,
+            startColumn: word.startColumn,
+            endColumn: word.endColumn,
+          };
+          const suggestions = [
+            ...cKeywords.map(k => ({
+              label: k,
+              kind: monaco.languages.CompletionItemKind.Keyword,
+              insertText: k,
+              range,
+            })),
+            ...cBuiltins.map(b => ({
+              label: b.label,
+              kind: monaco.languages.CompletionItemKind.Function,
+              insertText: b.insert,
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              detail: b.detail,
+              range,
+            })),
+          ];
+          return { suggestions };
+        },
+      });
+
+      // Register for C++ (includes C keywords + C++ extras)
+      monaco.languages.registerCompletionItemProvider('cpp', {
+        provideCompletionItems: (model, position) => {
+          const word = model.getWordUntilPosition(position);
+          const range = {
+            startLineNumber: position.lineNumber,
+            endLineNumber: position.lineNumber,
+            startColumn: word.startColumn,
+            endColumn: word.endColumn,
+          };
+          const cppKeywords = [...cKeywords, 'bool', 'catch', 'class', 'const_cast', 'delete',
+            'dynamic_cast', 'explicit', 'export', 'false', 'friend', 'mutable', 'namespace',
+            'new', 'operator', 'private', 'protected', 'public', 'reinterpret_cast',
+            'static_cast', 'template', 'this', 'throw', 'true', 'try', 'typeid', 'typename',
+            'using', 'virtual', 'wchar_t', 'nullptr', 'override', 'final', 'constexpr', 'auto'];
+          const suggestions = [
+            ...cppKeywords.map(k => ({
+              label: k,
+              kind: monaco.languages.CompletionItemKind.Keyword,
+              insertText: k,
+              range,
+            })),
+            ...[...cBuiltins, ...cppExtras].map(b => ({
+              label: b.label,
+              kind: monaco.languages.CompletionItemKind.Function,
+              insertText: b.insert,
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              detail: b.detail,
+              range,
+            })),
+          ];
+          return { suggestions };
+        },
+      });
+    }
   };
 
   const handleRun = () => {
