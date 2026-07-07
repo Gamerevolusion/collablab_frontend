@@ -488,7 +488,7 @@ export default function StudentWorkspace({
   }, [announcements, onDismissAnnouncement]);
 
   return (
-    <div className="flex-1 flex flex-col h-full">
+    <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden">
       {announcements.length > 0 && (
         <div className="space-y-0.5">
           {announcements.map(a => (
@@ -628,7 +628,7 @@ export default function StudentWorkspace({
       </div>
 
       {/* Editor */}
-      <div className={`${isWebMode && showPreview ? 'h-[50%]' : 'h-[60%]'} w-full border-b ${borderClass}`}>
+      <div className={`${isWebMode && showPreview ? 'h-[50%]' : 'h-[55%]'} w-full border-b ${borderClass}`}>
         <Editor
           key={activeFile.name}
           height="100%"
@@ -654,9 +654,9 @@ export default function StudentWorkspace({
           />
         </div>
       ) : (
-        <div className={`flex-1 w-full flex border-t ${borderClass}`}>
+        <div className={`flex-1 w-full flex border-t min-h-0 ${borderClass}`}>
           {/* Standard Input */}
-          <div className={`w-1/3 p-4 border-r ${borderClass} flex flex-col ${isDark ? 'bg-[#0A0A0A]' : 'bg-white'}`}>
+          <div className={`w-1/3 p-4 border-r ${borderClass} flex flex-col overflow-y-auto ${isDark ? 'bg-[#0A0A0A]' : 'bg-white'}`}>
             <div className="text-[9px] text-neutral-500 font-bold uppercase mb-2">Standard Input (stdin)</div>
             <textarea
               value={stdin}
@@ -667,7 +667,7 @@ export default function StudentWorkspace({
             />
           </div>
           {/* Output Console */}
-          <div className={`w-2/3 p-4 overflow-y-auto ${isDark ? 'bg-black' : 'bg-neutral-100'}`}>
+          <div className={`w-2/3 p-4 overflow-y-auto min-h-0 ${isDark ? 'bg-black' : 'bg-neutral-100'}`}>
             <div className="text-[9px] text-neutral-500 font-bold uppercase mb-2">Live Console</div>
             <div className={`text-xs whitespace-pre-wrap ${isDark ? 'text-neutral-300' : 'text-neutral-700 font-semibold'}`}>
               {(() => {
