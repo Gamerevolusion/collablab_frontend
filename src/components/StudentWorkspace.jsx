@@ -669,9 +669,29 @@ export default function StudentWorkspace({
           {/* Output Console */}
           <div className={`w-2/3 p-4 overflow-y-auto ${isDark ? 'bg-black' : 'bg-neutral-100'}`}>
             <div className="text-[9px] text-neutral-500 font-bold uppercase mb-2">Live Console</div>
-            <pre className={`text-xs whitespace-pre-wrap ${isDark ? 'text-neutral-300' : 'text-neutral-700 font-semibold'}`}>
-              {terminalOutput}
-            </pre>
+            <div className={`text-xs whitespace-pre-wrap ${isDark ? 'text-neutral-300' : 'text-neutral-700 font-semibold'}`}>
+              {(() => {
+                if (!terminalOutput) return <span className="text-neutral-600">No output yet.</span>;
+                // Split output into text and base64 plot segments
+                const parts = terminalOutput.split(/(__PLOT_BASE64__.*?__PLOT_END__)/s);
+                return parts.map((part, i) => {
+                  if (part.startsWith('__PLOT_BASE64__') && part.endsWith('__PLOT_END__')) {
+                    const b64 = part.slice('__PLOT_BASE64__'.length, -'__PLOT_END__'.length);
+                    return (
+                      <div key={i} className="my-3 rounded-lg overflow-hidden border border-neutral-800 inline-block">
+                        <img
+                          src={`data:image/png;base64,${b64}`}
+                          alt={`Plot ${Math.floor(i / 2) + 1}`}
+                          className="max-w-full h-auto"
+                          style={{ maxHeight: '400px' }}
+                        />
+                      </div>
+                    );
+                  }
+                  return part ? <span key={i}>{part}</span> : null;
+                });
+              })()}
+            </div>
           </div>
         </div>
       )}
