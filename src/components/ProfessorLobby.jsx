@@ -76,7 +76,9 @@ export default function ProfessorLobby({ isDark, onCreateSession, onSignOut }) {
   const generateCode = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let code = '';
-    for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+    const array = new Uint8Array(6);
+    crypto.getRandomValues(array);
+    for (let i = 0; i < 6; i++) code += chars[array[i] % chars.length];
     setLobbyCode(code);
   };
 

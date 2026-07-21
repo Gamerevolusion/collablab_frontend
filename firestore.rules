@@ -46,7 +46,7 @@ service cloud.firestore {
       // Users can create their own profile during signup
       // MED-3: Role must be 'student' or 'professor' — admin role requires backend validation
       allow create: if isOwner(userId)
-        && request.resource.data.role in ['student', 'professor', 'admin']
+        && request.resource.data.role in ['student', 'professor']
         && request.resource.data.keys().hasAll(['email', 'displayName', 'role', 'createdAt']);
 
       // Users can update their own profile but NOT change their role
@@ -88,7 +88,8 @@ service cloud.firestore {
         && resource.data.studentUid == request.auth.uid;
 
       // Professors can read participation records for their sessions
-      allow read: if isProfessor();
+      allow read: if isProfessor()
+        && get(/databases/$(database)/documents/sessions/$(resource.data.sessionId)).data.professorUid == request.auth.uid;
 
       // Admins can read all participation records
       allow read: if isAdmin();

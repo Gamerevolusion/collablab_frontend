@@ -61,7 +61,13 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId, studentN
       };
 
       ws.onmessage = (event) => {
-        const packet = JSON.parse(event.data);
+        let packet;
+        try {
+          packet = JSON.parse(event.data);
+        } catch (err) {
+          console.error('Invalid WebSocket message:', event.data);
+          return;
+        }
         const { type, payload } = packet;
 
         switch (type) {
