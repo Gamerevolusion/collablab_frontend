@@ -2,24 +2,7 @@ import React, { useState } from 'react';
 import { Megaphone, FileText } from 'lucide-react';
 import Editor from '@monaco-editor/react';
 import MonitorGrid from './MonitorGrid';
-
-const EXT_TO_MONACO = {
-  '.py': 'python',
-  '.js': 'javascript',
-  '.html': 'html',
-  '.htm': 'html',
-  '.css': 'css',
-  '.java': 'java',
-  '.c': 'c',
-  '.cpp': 'cpp',
-  '.r': 'r',
-  '.sql': 'sql',
-};
-
-const getMonacoLang = (fileName) => {
-  const ext = '.' + (fileName || '').split('.').pop().toLowerCase();
-  return EXT_TO_MONACO[ext] || 'plaintext';
-};
+import { getMonacoLang } from '../utils/languages';
 
 export default function ProfessorDashboard({
   isDark,

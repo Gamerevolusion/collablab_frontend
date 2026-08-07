@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Maximize2, Grid, Clipboard, FileText } from 'lucide-react';
+import OutputRenderer from './OutputRenderer';
 
 export default function MonitorGrid({ isDark, studentStreams, studentOutputs, handRaises, onAcknowledgeHand, pasteAlerts, onDismissPasteAlert, studentLanguages, studentActiveFiles, studentFileList }) {
   const [focusedStudent, setFocusedStudent] = useState(null);
@@ -135,27 +136,12 @@ export default function MonitorGrid({ isDark, studentStreams, studentOutputs, ha
               <div className={`${focusedStudent ? 'h-1/4' : 'h-1/3'} p-2 overflow-y-auto border-t ${
                 isDark ? 'bg-neutral-950 border-neutral-800' : 'bg-neutral-50 border-neutral-200'
               }`}>
-                <div className="text-[10px] text-emerald-500 font-bold whitespace-pre-wrap leading-tight">
-                  {(() => {
-                    const raw = studentOutputs[studentId] || 'NO EXECUTION DATA';
-                    const parts = raw.split(/(__PLOT_BASE64__.*?__PLOT_END__)/s);
-                    return parts.map((part, i) => {
-                      if (part.startsWith('__PLOT_BASE64__') && part.endsWith('__PLOT_END__')) {
-                        const b64 = part.slice('__PLOT_BASE64__'.length, -'__PLOT_END__'.length);
-                        return (
-                          <div key={i} className="my-1 rounded overflow-hidden inline-block">
-                            <img
-                              src={`data:image/png;base64,${b64}`}
-                              alt="Plot"
-                              className="max-w-full h-auto"
-                              style={{ maxHeight: focusedStudent ? '300px' : '120px' }}
-                            />
-                          </div>
-                        );
-                      }
-                      return part ? <span key={i}>{part}</span> : null;
-                    });
-                  })()}
+              <div className="text-[10px] text-emerald-500 font-bold whitespace-pre-wrap leading-tight">
+                  <OutputRenderer
+                    output={studentOutputs[studentId] || 'NO EXECUTION DATA'}
+                    isDark={isDark}
+                    maxPlotHeight={focusedStudent ? '300px' : '120px'}
+                  />
                 </div>
               </div>
             </div>

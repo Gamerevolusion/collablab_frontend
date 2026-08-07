@@ -3,11 +3,10 @@ import { LogOut, Plus, Trash2, BookOpen, GraduationCap, Users, Search, Edit3, Ey
 import { collection, query, where, orderBy, getDocs, addDoc, deleteDoc, updateDoc, doc, serverTimestamp, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { BACKEND_HTTP_URL } from '../utils/config';
+import { formatDate } from '../utils/formatters';
 
 const SEMESTERS = [1, 2, 3, 4, 5, 6];
-const BACKEND_URL = import.meta.env.VITE_BACKEND_HTTP_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-  ? 'http://localhost:4000' 
-  : 'https://collablab-backend.onrender.com');
 
 export default function AdminDashboard({ isDark, onSignOut }) {
   const { user, userProfile } = useAuth();
@@ -320,7 +319,7 @@ function StudentsTab({ isDark, borderClass, cardClass, inputClass }) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
         
-        const res = await fetch(`${BACKEND_URL}/api/delete-user`, {
+        const res = await fetch(`${BACKEND_HTTP_URL}/api/delete-user`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ uid: student.id }),
@@ -715,7 +714,7 @@ function ProfessorsTab({ isDark, borderClass, cardClass, inputClass }) {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
-        const res = await fetch(`${BACKEND_URL}/api/delete-user`, {
+        const res = await fetch(`${BACKEND_HTTP_URL}/api/delete-user`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ uid: prof.id }),

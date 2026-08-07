@@ -1,12 +1,14 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, Suspense, lazy } from 'react';
 import { Sun, Moon, LogOut } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginScreen from './components/LoginScreen';
 import StudentDashboard from './components/StudentDashboard';
 import ProfessorLobby from './components/ProfessorLobby';
-import StudentWorkspace from './components/StudentWorkspace';
-import ProfessorDashboard from './components/ProfessorDashboard';
-import AdminDashboard from './components/AdminDashboard';
+
+// Lazy-loaded heavy components (code splitting)
+const StudentWorkspace = lazy(() => import('./components/StudentWorkspace'));
+const ProfessorDashboard = lazy(() => import('./components/ProfessorDashboard'));
+const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 import { useCollabSocket } from './hooks/useCollabSocket';
 import {
   doc,
@@ -32,11 +34,19 @@ function AppContent() {
   const [joinError, setJoinError] = useState('');
 
   const [localCode, setLocalCode] = useState('print("System Online.")\n');
+
+  // Wrapper to track code changes for dirty-flag optimization
+  const setLocalCodeTracked = useCallback((code) => {
+    setLocalCode(code);
+    codeChangedRef.current = true;
+  }, []);
   const [selectedLanguage, setSelectedLanguage] = useState('python');
   const [isHandRaised, setIsHandRaised] = useState(false);
 
   // Track peak student count for accurate attendance
   const peakStudentCount = useRef(0);
+  // Dirty flag: only save snapshots when code actually changed
+  const codeChangedRef = useRef(false);
 
   const role = userProfile?.role || 'student';
   const studentId = role === 'student'
@@ -251,16 +261,17 @@ function AppContent() {
     if (socketError && inSession) {
       leaveSession();
     }
-  }, [socketError]);
+  }, [socketError, inSession, leaveSession]);
 
-  // Save code snapshots periodically (every 10 seconds, no getDoc — direct update)
+  // Save code snapshots periodically (every 10 seconds) — only if code has changed
   useEffect(() => {
     if (!inSession || role !== 'student' || !participantDocId) return;
     const interval = setInterval(async () => {
+      if (!codeChangedRef.current) return; // Skip if no changes
+      codeChangedRef.current = false;
       try {
         const activeFileName = getActiveFileName();
         const langKey = `${selectedLanguage}:${activeFileName}`;
-        // Direct update using dot notation — eliminates the read
         await updateDoc(doc(db, 'sessionParticipants', participantDocId), {
           [`codeSnapshots.${langKey}`]: {
             code: localCode,
@@ -272,7 +283,7 @@ function AppContent() {
       } catch (err) {
         console.error('Failed to save code snapshot:', err);
       }
-    }, 10000); // Save every 10 seconds
+    }, 10000);
     
     return () => clearInterval(interval);
   }, [inSession, role, participantDocId, localCode, selectedLanguage, getActiveFileName]);
@@ -327,9 +338,15 @@ function AppContent() {
     return <LoginScreen isDark={isDark} setIsDark={setIsDark} />;
   }
 
+  const suspenseFallback = (
+    <div className={`w-screen h-screen flex items-center justify-center font-mono text-xs ${isDark ? 'bg-neutral-950 text-neutral-500' : 'bg-neutral-50 text-neutral-400'}`}>
+      Loading module...
+    </div>
+  );
+
   if (!inSession) {
     if (role === 'admin') {
-      return <AdminDashboard isDark={isDark} onSignOut={signOut} />;
+      return <Suspense fallback={suspenseFallback}><AdminDashboard isDark={isDark} onSignOut={signOut} /></Suspense>;
     }
     if (role === 'professor') {
       return <ProfessorLobby isDark={isDark} onCreateSession={handleCreateSession} onSignOut={signOut} />;
@@ -374,13 +391,14 @@ function AppContent() {
       </header>
 
       <main className="flex-1 flex overflow-hidden">
+        <Suspense fallback={suspenseFallback}>
         {role === 'student' ? (
           <StudentWorkspace
             isDark={isDark}
             lobbyCode={lobbyCode}
             studentId={studentId}
             localCode={localCode}
-            setLocalCode={setLocalCode}
+            setLocalCode={setLocalCodeTracked}
             selectedLanguage={selectedLanguage}
             setSelectedLanguage={setSelectedLanguage}
             terminalOutput={terminalOutput}
@@ -412,6 +430,7 @@ function AppContent() {
             studentFileList={studentFileList}
           />
         )}
+        </Suspense>
       </main>
     </div>
   );

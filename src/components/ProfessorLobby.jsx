@@ -3,6 +3,7 @@ import { LogOut, Clock, Users, ArrowRight, Calendar, Plus, BookOpen, ChevronDown
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { formatDate, formatTime, formatDuration } from '../utils/formatters';
 
 const SEMESTERS = [1, 2, 3, 4, 5, 6];
 
@@ -90,26 +91,7 @@ export default function ProfessorLobby({ isDark, onCreateSession, onSignOut }) {
 
   const canCreate = lobbyCode.trim() && selectedSem && selectedSubject;
 
-  const formatDate = (ts) => {
-    if (!ts) return '—';
-    const d = ts.toDate ? ts.toDate() : new Date(ts);
-    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-  };
 
-  const formatTime = (ts) => {
-    if (!ts) return '';
-    const d = ts.toDate ? ts.toDate() : new Date(ts);
-    return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-  };
-
-  const formatDuration = (start, end) => {
-    if (!start || !end) return '—';
-    const ms = (end.toDate ? end.toDate() : new Date(end)) - (start.toDate ? start.toDate() : new Date(start));
-    const mins = Math.floor(ms / 60000);
-    if (mins < 1) return '< 1 min';
-    if (mins < 60) return `${mins} min`;
-    return `${Math.floor(mins / 60)}h ${mins % 60}m`;
-  };
 
   return (
     <div className={`w-screen h-screen flex flex-col font-mono overflow-hidden transition-colors duration-300 ${isDark ? 'bg-neutral-950 text-neutral-200' : 'bg-neutral-50 text-neutral-900'}`}>

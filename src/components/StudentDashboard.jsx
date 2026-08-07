@@ -3,6 +3,7 @@ import { LogOut, Clock, Code, User, ArrowRight, Calendar, Hash, ChevronDown, Fil
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { formatDate, formatTime, formatDuration } from '../utils/formatters';
 
 export default function StudentDashboard({ isDark, onJoinSession, onSignOut, joinError, setJoinError }) {
   const { user, userProfile } = useAuth();
@@ -46,26 +47,7 @@ export default function StudentDashboard({ isDark, onJoinSession, onSignOut, joi
     setExpandedSession(expandedSession === sessionId ? null : sessionId);
   };
 
-  const formatDuration = (joinedAt, leftAt) => {
-    if (!joinedAt || !leftAt) return '—';
-    const ms = (leftAt.toDate ? leftAt.toDate() : new Date(leftAt)) - (joinedAt.toDate ? joinedAt.toDate() : new Date(joinedAt));
-    const mins = Math.floor(ms / 60000);
-    if (mins < 1) return '< 1 min';
-    if (mins < 60) return `${mins} min`;
-    return `${Math.floor(mins / 60)}h ${mins % 60}m`;
-  };
 
-  const formatDate = (ts) => {
-    if (!ts) return '—';
-    const d = ts.toDate ? ts.toDate() : new Date(ts);
-    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-  };
-
-  const formatTime = (ts) => {
-    if (!ts) return '';
-    const d = ts.toDate ? ts.toDate() : new Date(ts);
-    return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-  };
 
   return (
     <div className={`w-screen h-screen flex flex-col font-mono overflow-hidden transition-colors duration-300 ${isDark ? 'bg-neutral-950 text-neutral-200' : 'bg-neutral-50 text-neutral-900'}`}>

@@ -29,9 +29,13 @@ export function AuthProvider({ children }) {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser);
-        const profileDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-        if (profileDoc.exists()) {
-          setUserProfile(profileDoc.data());
+        try {
+          const profileDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          if (profileDoc.exists()) {
+            setUserProfile(profileDoc.data());
+          }
+        } catch (err) {
+          console.error('Failed to load user profile:', err);
         }
       } else {
         setUser(null);

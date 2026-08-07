@@ -1,9 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { auth } from '../firebase';
-
-const WS_URL = import.meta.env.VITE_BACKEND_WS_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-  ? 'ws://localhost:4000' 
-  : 'wss://collablab-backend.onrender.com');
+import { BACKEND_WS_URL } from '../utils/config';
 
 export function useCollabSocket({ isJoined, role, lobbyCode, studentId, studentName }) {
   const socketRef = useRef(null);
@@ -29,7 +26,7 @@ export function useCollabSocket({ isJoined, role, lobbyCode, studentId, studentN
     intentionalClose.current = false;
 
     function connect() {
-      const ws = new WebSocket(WS_URL);
+      const ws = new WebSocket(BACKEND_WS_URL);
       socketRef.current = ws;
 
       ws.onopen = async () => {

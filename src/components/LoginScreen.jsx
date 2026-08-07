@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Sun, Moon, Eye, EyeOff, Info, X, Terminal, GitFork, Container, Database, Server, Code, Users, Shield, BookOpen, Globe } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { BACKEND_HTTP_URL } from '../utils/config';
 
 const ABOUT_CONTENT = {
   overview: `CollabLab is a full-stack real-time collaborative coding platform designed for educational environments. Built with React/Vite and Node.js/Express WebSocket backend, it enables professors to create live coding sessions where students join via a unique code to write, edit, and execute code collaboratively.`,
@@ -66,10 +67,7 @@ export default function LoginScreen({ isDark, setIsDark }) {
       if (role === 'professor' && semesters.length === 0) { setError('Please select at least one semester you teach.'); return; }
       if (role === 'admin') {
         try {
-          const API_URL = import.meta.env.VITE_BACKEND_HTTP_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-            ? 'http://localhost:4000'
-            : 'https://collablab-backend.onrender.com');
-          const resp = await fetch(`${API_URL}/api/validate-admin-key`, {
+          const resp = await fetch(`${BACKEND_HTTP_URL}/api/validate-admin-key`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ adminKey }),
